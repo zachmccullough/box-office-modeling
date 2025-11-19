@@ -45,11 +45,12 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     # 2. TRAILER / VIRAL BOOST
+    # We tweaked this down slightly so it doesn't over-inflate niche films
     trailer_multiplier = 1.0
-    if trailer_views > 50_000_000:
-        trailer_multiplier = 1.5 
-    elif trailer_views > 10_000_000:
-        trailer_multiplier = 1.25
+    if trailer_views > 60_000_000:
+        trailer_multiplier = 1.4  # Mega Viral (Blockbuster only)
+    elif trailer_views > 15_000_000:
+        trailer_multiplier = 1.2 # Star Power / Viral 
     
     base_gross = base_gross * trailer_multiplier
 
@@ -79,7 +80,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final_prediction
 
-# --- PART 2: REAL DATA PRESETS ---
+# --- PART 2: REAL DATA PRESETS (TUNED DOWN) ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -97,7 +98,8 @@ presets = {
         "yt_id": "aTAacTUKK00", "yt_fallback": 500000
     },
     "The Moment (A24)": {
-        "aware": 35, "interest": 40, "theaters": 2500, "buzz": 1.4, "comp": 0.9, 
+        # TUNED DOWN: Was 35% Aware / 40% Interest (Too high for indie drama)
+        "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
         "wiki": "The_Moment_(2026_film)", 
         "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000
     },
@@ -112,7 +114,9 @@ presets = {
         "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000
     },
     "Elden Ring (Hypothetical)": {
-        "aware": 75, "interest": 65, "theaters": 4500, "buzz": 1.6, "comp": 0.8, 
+        # TUNED DOWN: Was 75/65. 
+        # Lowered Interest because hardcore fantasy isolates casual audiences (unlike Mario)
+        "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
         "wiki": "Elden_Ring", 
         "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000
     },
@@ -156,10 +160,7 @@ st.sidebar.header("2. Model Inputs")
 # The 'value' parameter sets the default based on the chosen preset
 total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
 interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
-
-# --- FIX APPLIED HERE: Min Value changed from 1000 to 100 ---
 theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'])
-
 rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
 
 # Multipliers
