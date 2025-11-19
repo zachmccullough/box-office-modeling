@@ -21,13 +21,28 @@ def get_wikipedia_views(article_title):
         return 0
 
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
-    # Base Calculation
+    # 1. Base Calculation (Linear)
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
-    capacity_gross = theaters * 3500
-    weighted_gross = (base_gross * 0.6) + (capacity_gross * 0.4)
     
-    # Multipliers
+    # 2. BLOCKBUSTER ADJUSTMENT (The "Wicked" Fix)
+    # If theaters > 3000, we assume group sales/families (exponential growth)
+    if theaters > 3000:
+        base_gross = base_gross * 4.0  # Family/Group Multiplier
+        
+        # If Awareness is super high, add "Event" status
+        if total_aware > 60:
+            base_gross = base_gross * 1.5
+
+    # 3. Standard Capacity Logic
+    # We increase the capacity cap for blockbusters
+    cap_per_theater = 5000 if theaters > 3000 else 3500
+    capacity_gross = theaters * cap_per_theater
+    
+    weighted_gross = (base_gross * 0.7) + (capacity_gross * 0.3)
+    
+    # 4. Quality Multipliers
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
+    
     return weighted_gross * quality_mult * buzz * comp
 
 # --- PART 2: REAL DATA PRESETS ---
@@ -64,7 +79,7 @@ interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['intere
 theaters = st.sidebar.number_input("Theater Count", 1000, 4500, value=data['theaters'])
 rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
 
-# CHANGED: Switched from select_slider to standard slider to prevent crash
+# Multipliers (Standard Sliders to prevent crashing)
 buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 
@@ -80,7 +95,9 @@ with col1:
 
 with col2:
     st.write("### Analysis")
-    if prediction > 10_000_000:
+    if prediction > 100_000_000:
+        st.success("🦄 MEGA BLOCKBUSTER")
+    elif prediction > 10_000_000:
         st.success("🚀 BREAKOUT HIT")
     elif prediction > 6_000_000:
         st.info("✅ SOLID PERFORMER")
@@ -93,6 +110,7 @@ chart_data = {
     "Prediction": prediction / 1_000_000,
     "Priscilla": 5.0,
     "The Iron Claw": 4.9,
-    "Age of Adaline (Goal)": 13.2
+    "Age of Adaline (Goal)": 13.2,
+    "Wicked (Projection)": 125.0 
 }
 st.bar_chart(chart_data)
