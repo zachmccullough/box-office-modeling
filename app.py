@@ -67,7 +67,6 @@ st.markdown("""
     .status-warning { background-color: #FEF9C3; color: #713F12; border: 1px solid #fef08a; }
     .status-neutral { background-color: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
     
-    /* Tuning Advice Box */
     .tuning-box {
         background-color: #F8FAFC;
         border-left: 4px solid #3B82F6;
@@ -156,9 +155,8 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final_opening, dom_total, global_total
 
-# --- PART 2: PRESETS (MIXED UPCOMING & HISTORICAL) ---
+# --- PART 2: PRESETS ---
 presets = {
-    # --- UPCOMING ---
     "Eternity (A24)": {
         "type": "upcoming",
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -179,38 +177,55 @@ presets = {
         "intl_multiplier": 1.6, 
         "benchmarks": {"Frozen II": 130.0, "Barbie": 162.0, "Wonka": 39.0}
     },
+    "Avatar: Fire and Ash": {
+        "type": "upcoming",
+        "aware": 95, "interest": 85, "theaters": 4500, "buzz": 1.8, "comp": 1.0, 
+        "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000,
+        "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
+        "tracking_source": "Hypothetical",
+        "competitors": "None",
+        "intl_multiplier": 3.5,
+        "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
+    },
+    "A Minecraft Movie": {
+        "type": "upcoming",
+        "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
+        "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
+        "rt_slug": "a_minecraft_movie", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Real Data",
+        "competitors": "Micheal",
+        "intl_multiplier": 2.2,
+        "benchmarks": {"Super Mario Bros": 146.3, "Sonic 2": 72.1}
+    },
     
-    # --- HISTORICAL / BACKTESTING ---
+    # --- HISTORICAL ---
     "Barbie (Historical)": {
-        "type": "historical",
-        "actual_opening": 162.0, # Millions
+        "type": "historical", "actual_opening": 162.0,
         "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
         "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", "yt_fallback": 80000000,
         "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
-        "tracking_source": "Historical NRG Reports",
+        "tracking_source": "Historical NRG",
         "competitors": "Oppenheimer",
         "intl_multiplier": 2.1,
         "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
     },
     "Five Nights at Freddy's (Historical)": {
-        "type": "historical",
-        "actual_opening": 80.0,
+        "type": "historical", "actual_opening": 80.0,
         "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
         "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000,
         "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
-        "tracking_source": "Historical NRG Reports",
-        "competitors": "Taylor Swift: Eras Tour (Holdover)",
+        "tracking_source": "Historical NRG",
+        "competitors": "Eras Tour",
         "intl_multiplier": 1.8,
         "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
     },
     "The Fall Guy (Historical)": {
-        "type": "historical",
-        "actual_opening": 27.7,
+        "type": "historical", "actual_opening": 27.7,
         "aware": 65, "interest": 45, "theaters": 4002, "buzz": 1.0, "comp": 0.9, 
         "wiki": "The_Fall_Guy_(2024_film)", "yt_id": "j7jPnwVGdZ8", "yt_fallback": 25000000,
         "rt_slug": "the_fall_guy_2024", "source_label": "Historical Data", "source_status": "neutral",
-        "tracking_source": "Historical NRG Reports",
-        "competitors": "Tarot, Challengers",
+        "tracking_source": "Historical NRG",
+        "competitors": "Tarot",
         "intl_multiplier": 2.0,
         "benchmarks": {"Actual Opening": 27.7, "Bullet Train": 30.0}
     }
@@ -266,13 +281,12 @@ st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 opening, dom_total, global_total = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'])
 
 # --- MAIN DASHBOARD ---
-# If Historical, we show a Split View (Model vs Actual)
 if data.get('type') == 'historical':
     actual = data['actual_opening'] * 1_000_000
     delta = opening - actual
     percent_error = (delta / actual) * 100
     
-    st.info(f"🕰️ **BACKTEST MODE:** Comparing model prediction against actual 2023/2024 results.")
+    st.info(f"🕰️ **BACKTEST MODE:** Comparing prediction against actual results.")
     
     col1, col2, col3 = st.columns(3)
     with col1:
@@ -287,7 +301,6 @@ if data.get('type') == 'historical':
         else:
             st.error("❌ Model Failed")
 
-    # AUTO-TUNER LOGIC
     advice = ""
     if percent_error < -20:
         advice = "📉 **Diagnosis:** The model was too conservative. <br> **Fix:** For films like this (High Awareness), consider increasing the base Interest multiplier."
@@ -299,7 +312,6 @@ if data.get('type') == 'historical':
     st.markdown(f"""<div class="tuning-box">{advice}</div>""", unsafe_allow_html=True)
 
 else:
-    # Standard Future View
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Predicted Opening", f"${opening/1_000_000:.2f}M")
@@ -319,7 +331,6 @@ with col_chart:
     chart_data = data['benchmarks'].copy()
     chart_data["PREDICTION"] = opening / 1_000_000
     
-    # If historical, highlight the ACTUAL bar too
     if data.get('type') == 'historical':
         chart_data["ACTUAL"] = data['actual_opening']
 
@@ -328,23 +339,22 @@ with col_chart:
         "Gross": list(chart_data.values())
     })
 
+    # --- COLOR LOGIC (PYTHON SIDE FIX) ---
+    def get_color(movie):
+        if movie == 'PREDICTION': return '#18181B' # Black
+        if movie == 'ACTUAL': return '#10B981'     # Green
+        return '#E4E4E7'                           # Grey
+    
+    df['Color'] = df['Movie'].apply(get_color)
+
     base = alt.Chart(df).encode(
         x=alt.X('Gross', title='Opening Weekend ($M)', axis=alt.Axis(grid=False)),
         y=alt.Y('Movie', sort='-x', title=None, axis=alt.Axis(labelLimit=200)),
         tooltip=['Movie', 'Gross']
     )
 
-    # Color Logic: Indigo for Prediction, Green for Actual, Grey for Benchmarks
     bars = base.mark_bar().encode(
-        color=alt.condition(
-            alt.datum.Movie == 'PREDICTION',
-            alt.value('#18181B'),  # Prediction = Black
-            alt.condition(
-                alt.datum.Movie == 'ACTUAL',
-                alt.value('#10B981'), # Actual = Green
-                alt.value('#E4E4E7')  # Benchmarks = Grey
-            )
-        )
+        color=alt.Color('Color', scale=None)
     )
 
     text = base.mark_text(align='left', dx=3).encode(text=alt.Text('Gross', format=',.1f'))
@@ -365,3 +375,4 @@ with col_info:
         **3. Historical Backtesting:**
         * Select a "Historical" movie to see how this model would have performed against real results.
         """)
+        
