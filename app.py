@@ -75,6 +75,7 @@ st.markdown("""
     .status-warning { background-color: #FEF9C3; color: #713F12; border: 1px solid #fef08a; }
     .status-neutral { background-color: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
     
+    /* Tuning Advice Box */
     .tuning-box {
         background-color: #F8FAFC;
         border-left: 4px solid #3B82F6;
@@ -254,7 +255,7 @@ def render_short_term():
             "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
         },
         "Marty Supreme (A24)": {
-            "type": "upcoming", "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
+            "type": "upcoming", "aware": 30, "interest": 40, "theaters": 3200, "buzz": 1.3, "comp": 0.9, 
             "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
             "rt_slug": "marty_supreme", "source_label": "Official Trailer", "source_status": "success",
             "tracking_source": "Estimated (Uncut Gems Comps)", "competitors": "Avatar: Fire and Ash, SpongeBob",
@@ -356,7 +357,7 @@ def render_short_term():
     comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
     st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
-    # Calculations with SMOOTHED THEATER LOGIC
+    # Calculations
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     trailer_multiplier = 1.0
     if live_yt > 60_000_000: trailer_multiplier = 1.4
@@ -452,4 +453,3 @@ if view == "🔭 Long-Lead Planner":
     render_long_lead()
 else:
     render_short_term()
-    
