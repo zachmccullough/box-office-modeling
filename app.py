@@ -141,7 +141,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     return wiki_views, yt_views, rt_score
 
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views):
-    # 1. OPENING WEEKEND CALCULATION
+    # 1. OPENING WEEKEND
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     trailer_multiplier = 1.0
@@ -165,22 +165,18 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         final_opening = raw_opening
     
     # 2. DOMESTIC TOTAL (LEGS)
-    # Base multiplier is 2.7x. High RT scores boost legs.
     legs = 2.7
-    if rt_score > 80: legs += 0.5   # Great WOM
-    elif rt_score < 50: legs -= 0.6 # Poor WOM
-    
-    # Smaller release = usually longer legs (platforming)
+    if rt_score > 80: legs += 0.5
+    elif rt_score < 50: legs -= 0.6
     if theaters < 2000: legs += 0.4
     
     dom_total = final_opening * legs
     
     # 3. GLOBAL TOTAL
-    # Blockbusters (>3000 screens) usually have 40/60 split. Indies usually 60/40.
     if theaters > 3000:
-        global_total = dom_total * 2.5 # Massive Int'l Appeal
+        global_total = dom_total * 2.5
     else:
-        global_total = dom_total * 1.6 # Domestic Heavy
+        global_total = dom_total * 1.6
         
     return final_opening, dom_total, global_total
 
@@ -312,7 +308,6 @@ st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 opening, dom_total, global_total = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
 
 # --- MAIN DASHBOARD ---
-# Expanded to 3 columns to show the new Totals
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -321,16 +316,6 @@ with col2:
     st.metric(label="Projected Domestic Total", value=f"${dom_total/1_000_000:.2f}M")
 with col3:
     st.metric(label="Projected Global Total", value=f"${global_total/1_000_000:.2f}M")
-
-# Status Banner
-if opening > 100_000_000:
-    st.success("🦄 MEGA BLOCKBUSTER")
-elif opening > 30_000_000:
-    st.success("🚀 MAJOR HIT")
-elif opening > 10_000_000:
-    st.info("✅ SOLID PERFORMER")
-else:
-    st.error("⚠️ NICHE / LIMITED")
 
 st.markdown("---")
 
