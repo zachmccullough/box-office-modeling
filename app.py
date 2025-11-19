@@ -246,6 +246,7 @@ def render_short_term():
 
     # Presets
     presets = {
+        # --- A24 SLATE ---
         "Eternity (A24)": {
             "type": "upcoming", "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
             "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
@@ -253,6 +254,29 @@ def render_short_term():
             "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two, Zootopia 2",
             "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
         },
+        "Marty Supreme (A24)": {
+            "type": "upcoming", "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
+            "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
+            "rt_slug": "marty_supreme", "source_label": "Official Trailer", "source_status": "success",
+            "tracking_source": "Estimated (Uncut Gems Comps)", "competitors": "Avatar: Fire and Ash, SpongeBob",
+            "intl_multiplier": 1.8, "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
+        },
+        "Pillion (A24/Element)": {
+            "type": "upcoming", "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
+            "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
+            "rt_slug": "pillion", "source_label": "Teaser / First Look", "source_status": "success",
+            "tracking_source": "Estimated (Arthouse Niche)", "competitors": "Limited Release Competition",
+            "intl_multiplier": 1.5, "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
+        },
+        "The Moment (A24)": {
+            "type": "upcoming", "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
+            "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
+            "rt_slug": "the_moment_2026", "source_label": "Official Trailer", "source_status": "success",
+            "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
+            "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
+        },
+
+        # --- BLOCKBUSTERS ---
         "Wicked: Part Two": {
             "type": "upcoming", "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
             "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
@@ -274,7 +298,8 @@ def render_short_term():
             "tracking_source": "Real Data", "competitors": "Micheal",
             "intl_multiplier": 2.2, "benchmarks": {"Super Mario Bros": 146.3, "Sonic 2": 72.1}
         },
-        # Historicals
+
+        # --- HISTORICALS ---
         "Barbie (Historical)": {
             "type": "historical", "actual_opening": 162.0,
             "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
