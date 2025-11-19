@@ -140,7 +140,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
 
     return wiki_views, yt_views, rt_score
 
-def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views):
+def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier):
     # 1. OPENING WEEKEND
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
@@ -172,11 +172,10 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     
     dom_total = final_opening * legs
     
-    # 3. GLOBAL TOTAL
-    if theaters > 3000:
-        global_total = dom_total * 2.5
-    else:
-        global_total = dom_total * 1.6
+    # 3. GLOBAL TOTAL (Calculated using specific genre multiplier)
+    # 1.6x = Domestic Heavy (Musicals, Comedies)
+    # 2.5x = Global Appeal (Action, Animation)
+    global_total = dom_total * intl_multiplier
         
     return final_opening, dom_total, global_total
 
@@ -189,6 +188,7 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)",
         "competitors": "Wicked: Part Two, Zootopia 2",
+        "intl_multiplier": 1.8, # A24 Romance (US Heavy)
         "benchmarks": {"Priscilla": 5.0, "Age of Adaline (Goal)": 13.2, "Me Before You (Breakout)": 18.7}
     },
     "Marty Supreme (A24)": {
@@ -198,6 +198,7 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Uncut Gems Comps)",
         "competitors": "Avatar: Fire and Ash, SpongeBob",
+        "intl_multiplier": 1.8, # A24 Biopic (US Heavy)
         "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "Pillion (A24/Element)": {
@@ -207,6 +208,7 @@ presets = {
         "source_label": "Teaser / First Look", "source_status": "success",
         "tracking_source": "Estimated (Arthouse Niche)",
         "competitors": "Limited Release Competition",
+        "intl_multiplier": 1.5, # Arthouse (Very US Heavy)
         "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (A24)": {
@@ -216,6 +218,7 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Sci-Fi Comps)",
         "competitors": "Project Hail Mary",
+        "intl_multiplier": 2.0, # Sci-Fi (Travels better than drama)
         "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Wicked: Part Two": {
@@ -225,6 +228,7 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)",
         "competitors": "Zootopia 2, Eternity",
+        "intl_multiplier": 1.6, # Musical (Domestic Heavy - Matches Wicked 1)
         "benchmarks": {"Frozen II": 130.0, "Barbie": 162.0, "Wonka": 39.0}
     },
     "Zootopia 2": {
@@ -234,6 +238,7 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)",
         "competitors": "Wicked: Part Two",
+        "intl_multiplier": 2.8, # Animation (Massive Global Appeal)
         "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Elden Ring (Hypothetical)": {
@@ -243,6 +248,7 @@ presets = {
         "source_label": "Proxy (Game Trailer)", "source_status": "warning",
         "tracking_source": "Hypothetical (Gamer Comps)",
         "competitors": "Direct-to-Fan Event",
+        "intl_multiplier": 2.2, # Gaming IP (Strong Asia/EU Appeal)
         "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
     },
 }
@@ -305,7 +311,7 @@ comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp'
 st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
 # --- CALCULATIONS ---
-opening, dom_total, global_total = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
+opening, dom_total, global_total = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'])
 
 # --- MAIN DASHBOARD ---
 col1, col2, col3 = st.columns(3)
@@ -360,18 +366,18 @@ with col_chart:
 
 with col_info:
     with st.expander("🔎 View Methodology", expanded=True):
-        st.markdown("""
+        st.markdown(f"""
         **1. Opening Weekend:**
-        * Driven by Awareness × Interest.
-        * Boosted by Trailer Views (>10M).
-        * Dampened by Competition.
+        * Awareness × Interest.
+        * Trailer Boost (if >10M views).
+        * Competition Dampener.
         
         **2. Domestic Total:**
-        * Applies a "Legs Multiplier" to Opening.
-        * High RT scores (>80) boost legs.
-        * Low scores (<50) cut legs.
+        * Opening × Legs Multiplier.
+        * Legs are adjusted by RT Score.
         
         **3. Global Total:**
-        * Blockbusters (>3k screens) = ~40% Domestic share.
-        * Indie/Dramas (<3k screens) = ~60% Domestic share.
+        * Uses Genre-Specific Split.
+        * **Current Multiplier:** {data['intl_multiplier']}x Domestic.
+        * *(Note: Musicals/Dramas are lower, Animation/Action are higher).*
         """)
