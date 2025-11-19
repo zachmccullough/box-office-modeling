@@ -6,101 +6,130 @@ import pandas as pd
 import altair as alt
 from datetime import datetime, timedelta
 
-# --- PART 0: HIGH-END CONSUMER DESIGN (Light Mode) ---
+# --- PART 0: SHADCN/UI THEME (ZINC) ---
 st.set_page_config(page_title="Box Office Model", page_icon="🎬", layout="wide")
 
 st.markdown("""
 <style>
-    /* 1. MAIN BACKGROUND & FONT */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+    /* 1. ROOT VARS (Shadcn Zinc Theme) */
+    :root {
+        --background: #FFFFFF;
+        --foreground: #09090B;
+        --card: #FFFFFF;
+        --card-foreground: #09090B;
+        --popover: #FFFFFF;
+        --popover-foreground: #09090B;
+        --primary: #18181B;
+        --primary-foreground: #FAFAFA;
+        --muted: #F4F4F5;
+        --muted-foreground: #71717A;
+        --accent: #F4F4F5;
+        --accent-foreground: #18181B;
+        --border: #E4E4E7;
+        --input: #E4E4E7;
+        --ring: #18181B;
+        --radius: 0.5rem;
+    }
+
+    /* 2. GLOBAL RESETS */
     .stApp {
-        background-color: #FFFFFF;
-        color: #1A1A1C;
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background-color: var(--background);
+        color: var(--foreground);
+        font-family: 'Inter', sans-serif;
     }
     
-    /* 2. SIDEBAR STYLING (WIDER WIDTH FIX) */
+    /* 3. SIDEBAR */
     [data-testid="stSidebar"] {
-        background-color: #F7F8FA;
-        border-right: 1px solid #E2E2E5;
+        background-color: #FAFAFA; /* Zinc-50 */
+        border-right: 1px solid var(--border);
         min-width: 400px !important;
         max-width: 400px !important;
     }
-    
-    /* 3. METRIC CARDS (Clean White) */
-    [data-testid="stMetric"] {
-        background-color: #FFFFFF;
+
+    /* 4. CARDS (Metrics & Charts) */
+    [data-testid="stMetric"], [data-testid="stExpander"] {
+        background-color: var(--card);
+        color: var(--card-foreground);
+        border-radius: var(--radius);
+        border: 1px solid var(--border);
+        box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
         padding: 16px;
-        border-radius: 10px;
-        border: 1px solid #E2E2E5;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* 5. TYPOGRAPHY */
+    h1, h2, h3 {
+        font-family: 'Inter', sans-serif;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        color: var(--foreground);
     }
     [data-testid="stMetricLabel"] {
-        font-size: 0.85rem;
+        font-size: 0.875rem;
         font-weight: 500;
-        color: #6B6F7B;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        color: var(--muted-foreground);
     }
     [data-testid="stMetricValue"] {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
         font-weight: 700;
-        color: #1A1A1C;
+        letter-spacing: -0.025em;
     }
 
-    /* 4. INPUT FIELDS */
+    /* 6. INPUTS (The Shadcn Look) */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-        background-color: #FFFFFF;
-        color: #1A1A1C;
-        border: 1px solid #E2E2E5;
-        border-radius: 8px;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.02);
+        background-color: transparent;
+        border-radius: var(--radius);
+        border: 1px solid var(--input);
+        color: var(--foreground);
+        font-size: 0.875rem;
+        height: 2.5rem;
+        transition: all 0.1s;
     }
-    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"]:focus {
-        border-color: #5E6AD2; /* Indigo Accent */
-        box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.1);
+    /* The Signature Focus Ring */
+    .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
+        border-color: var(--ring);
+        box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
+        outline: none;
     }
-    
-    /* 5. STATUS BADGES */
+
+    /* 7. BADGES */
     .status-badge {
-        display: inline-block;
-        padding: 4px 10px;
-        border-radius: 20px;
+        display: inline-flex;
+        align-items: center;
+        border-radius: 9999px;
+        padding: 0.25rem 0.75rem;
         font-size: 0.75rem;
         font-weight: 600;
+        line-height: 1;
         margin-bottom: 12px;
     }
-    .status-success { background-color: #E6F6EC; color: #057A55; border: 1px solid #DEF7EC; }
-    .status-warning { background-color: #FFF8C5; color: #9A6700; border: 1px solid #FBE7A1; }
-    
-    /* 6. HEADERS & DIVIDERS */
-    h1, h2, h3 {
-        color: #1A1A1C;
-        font-weight: 700;
-        letter-spacing: -0.5px;
+    .status-success {
+        background-color: #DCFCE7; /* Green-100 */
+        color: #14532D;           /* Green-900 */
+        border: 1px solid #bbf7d0;
     }
-    hr {
-        margin: 2em 0;
-        border-color: #E2E2E5;
+    .status-warning {
+        background-color: #FEF9C3; /* Yellow-100 */
+        color: #713F12;           /* Yellow-900 */
+        border: 1px solid #fef08a;
     }
     
-    /* 7. ALERTS */
-    .stAlert {
-        background-color: #F7F8FA;
-        border: 1px solid #E2E2E5;
-        color: #1A1A1C;
+    /* 8. BUTTONS (Secondary style) */
+    button[kind="secondary"] {
+        background-color: var(--background);
+        color: var(--foreground);
+        border: 1px solid var(--input);
+        border-radius: var(--radius);
+        font-weight: 500;
+    }
+    button[kind="secondary"]:hover {
+        background-color: var(--accent);
     }
     
-    /* 8. LINKS */
-    a { color: #5E6AD2 !important; text-decoration: none; }
-    a:hover { text-decoration: underline; }
-    
-    /* 9. CAPTIONS (Subtle) */
-    .caption-text {
-        font-size: 0.8rem;
-        color: #6B6F7B;
-        margin-top: -10px;
-        margin-bottom: 15px;
-    }
+    /* 9. LINKS */
+    a { color: var(--foreground) !important; text-decoration: underline; text-decoration-thickness: 1px;}
+    a:hover { opacity: 0.8; }
 
 </style>
 """, unsafe_allow_html=True)
@@ -133,24 +162,16 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     except:
         pass 
 
-    # 3. Rotten Tomatoes (Improved Scraper)
+    # 3. Rotten Tomatoes
     rt_score = None 
     if rt_slug:
         try:
             url = f"https://www.rottentomatoes.com/m/{rt_slug}"
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
             response = requests.get(url, headers=headers)
-            
-            # Strategy 1: Look for standard Tomatometer (Released films)
             match = re.search(r'tomatometerscore="(\d+)"', response.text)
-            
-            # Strategy 2: Look for JSON-LD Schema (Unreleased / Festival films)
-            if not match:
-                match = re.search(r'"ratingValue":\s*"(\d+)"', response.text)
-                
-            # Strategy 3: Look for "percentage" class (Older pages)
-            if not match:
-                match = re.search(r'class="percentage">\s*(\d+)%', response.text)
+            if not match: match = re.search(r'"ratingValue":\s*"(\d+)"', response.text)
+            if not match: match = re.search(r'class="percentage">\s*(\d+)%', response.text)
 
             if match:
                 rt_score = int(match.group(1))
@@ -351,15 +372,15 @@ with col2:
 
     # Create Horizontal Bar Chart
     c = alt.Chart(df).mark_bar().encode(
-        x=alt.X('Gross', title='Opening Weekend ($M)'),
-        y=alt.Y('Movie', sort='-x', title=None),
+        x=alt.X('Gross', title='Opening Weekend ($M)', axis=alt.Axis(grid=False)),
+        y=alt.Y('Movie', sort='-x', title=None, axis=alt.Axis(labelLimit=200)),
         color=alt.condition(
             alt.datum.Movie == 'PREDICTION',
-            alt.value('#5E6AD2'),  # Indigo for Prediction
-            alt.value('#E2E2E5')   # Grey for Comps
+            alt.value('#18181B'),  # Zinc-950 (Black) for Prediction
+            alt.value('#E4E4E7')   # Zinc-200 (Light Grey) for Comps
         ),
         tooltip=['Movie', 'Gross']
-    ).properties(height=300)
+    ).properties(height=300).configure_view(strokeWidth=0)
 
     text = c.mark_text(
         align='left',
@@ -382,3 +403,4 @@ with st.expander("🔎 View Methodology"):
     5. **Quality:** If RT Score > 80, **+15%**. If < 50, **-15%**.
     6. **Reality Cap:** For predictions over $150M, we apply logarithmic dampening.
     """)
+    
