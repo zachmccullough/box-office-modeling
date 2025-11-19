@@ -40,27 +40,38 @@ def get_youtube_views(video_id, fallback_views):
     except:
         return fallback_views
 
-def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
+def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views):
     # 1. Base Calculation (Linear)
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # 2. BLOCKBUSTER ADJUSTMENT (Tuned Down)
+    # 2. TRAILER / VIRAL BOOST (New Feature)
+    # If trailer views are huge, we assume 'Awareness' numbers are lagging behind reality.
+    trailer_multiplier = 1.0
+    if trailer_views > 50_000_000:
+        trailer_multiplier = 1.5  # Mega Viral
+    elif trailer_views > 10_000_000:
+        trailer_multiplier = 1.25 # Star Power / Viral (The Chalamet Fix)
+    
+    # Apply the boost to the base gross
+    base_gross = base_gross * trailer_multiplier
+
+    # 3. BLOCKBUSTER ADJUSTMENT
     if theaters > 3000:
         base_gross = base_gross * 3.0 
         if total_aware > 60:
             base_gross = base_gross * 1.25
 
-    # 3. Capacity Logic
+    # 4. Capacity Logic
     cap_per_theater = 5000 if theaters > 3000 else 3500
     capacity_gross = theaters * cap_per_theater
     
     weighted_gross = (base_gross * 0.7) + (capacity_gross * 0.3)
     
-    # 4. Multipliers
+    # 5. Multipliers
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     raw_prediction = weighted_gross * quality_mult * buzz * comp
 
-    # 5. REALITY CAP (Logarithmic Dampening)
+    # 6. REALITY CAP (Logarithmic Dampening)
     if raw_prediction > 150_000_000:
         excess = raw_prediction - 150_000_000
         dampened_excess = math.sqrt(excess) * 3500 
@@ -78,9 +89,9 @@ presets = {
         "yt_id": "irXTps1REHU", "yt_fallback": 9300000
     },
     "Marty Supreme (A24)": {
-        "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
+        "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
         "wiki": "Marty_Supreme", 
-        "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000 # CORRECTED to Official Trailer
+        "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000
     },
     "Pillion (A24/Element)": {
         "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
@@ -131,13 +142,16 @@ st.sidebar.divider()
 
 # YouTube
 st.sidebar.subheader("Official Trailer Views")
-if st.sidebar.button("Fetch YouTube Views"):
+# We auto-load the fallback first so the math works instantly
+current_yt_views = data['yt_fallback']
+
+if st.sidebar.button("Fetch LIVE YouTube Views"):
     with st.spinner("Checking YouTube..."):
-        yt_views = get_youtube_views(data['yt_id'], data['yt_fallback'])
-        st.sidebar.metric("Total Trailer Views", f"{yt_views:,}")
+        current_yt_views = get_youtube_views(data['yt_id'], data['yt_fallback'])
+        st.sidebar.metric("Total Trailer Views", f"{current_yt_views:,}")
         st.sidebar.caption(f"Source: Official Trailer")
 else:
-    st.sidebar.info("Click to load live YouTube data")
+    st.sidebar.caption(f"Current Data: {current_yt_views:,} views")
 
 st.sidebar.divider()
 
@@ -153,7 +167,8 @@ buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['b
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 
 # Calculations
-prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp)
+# We now pass 'current_yt_views' into the math function
+prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, current_yt_views)
 
 # --- MAIN OUTPUT ---
 st.divider()
