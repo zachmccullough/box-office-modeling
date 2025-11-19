@@ -45,11 +45,10 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     # 2. BLOCKBUSTER ADJUSTMENT (Tuned Down)
-    # We lowered the multipliers here to prevent runaway math
     if theaters > 3000:
-        base_gross = base_gross * 3.0  # Was 4.0
+        base_gross = base_gross * 3.0 
         if total_aware > 60:
-            base_gross = base_gross * 1.25 # Was 1.5
+            base_gross = base_gross * 1.25
 
     # 3. Capacity Logic
     cap_per_theater = 5000 if theaters > 3000 else 3500
@@ -61,12 +60,9 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     raw_prediction = weighted_gross * quality_mult * buzz * comp
 
-    # 5. REALITY CAP (New Feature)
-    # If prediction > $150M, apply logarithmic dampening.
-    # This simulates the physical limit of theater seats.
+    # 5. REALITY CAP (Logarithmic Dampening)
     if raw_prediction > 150_000_000:
         excess = raw_prediction - 150_000_000
-        # The excess grows slower (square root)
         dampened_excess = math.sqrt(excess) * 3500 
         final_prediction = 150_000_000 + dampened_excess
     else:
@@ -84,7 +80,7 @@ presets = {
     "Marty Supreme (A24)": {
         "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
         "wiki": "Marty_Supreme", 
-        "yt_id": "1qNwbkAYrCw", "yt_fallback": 2100000
+        "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000 # CORRECTED to Official Trailer
     },
     "Pillion (A24/Element)": {
         "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
@@ -106,7 +102,6 @@ presets = {
         "wiki": "Zootopia_2", 
         "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000
     },
-    # Adjusted Elden Ring to "Mario Movie" levels (High but not Impossible)
     "Elden Ring (Hypothetical)": {
         "aware": 75, "interest": 65, "theaters": 4500, "buzz": 1.6, "comp": 0.8, 
         "wiki": "Elden_Ring", 
