@@ -24,14 +24,14 @@ def get_wikipedia_views(article_title):
 def get_youtube_views(video_id, fallback_views):
     """
     Attempts to scrape the live view count from the YouTube video page.
-    Falls back to a hardcoded number if the scrape fails (common on cloud servers).
+    Falls back to a hardcoded number if the scrape fails.
     """
     url = f"https://www.youtube.com/watch?v={video_id}"
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'}
     
     try:
         response = requests.get(url, headers=headers)
-        # Regex to find the view count in the raw HTML (works 80% of the time)
+        # Regex to find the view count in the raw HTML
         match = re.search(r'"viewCount":"(\d+)"', response.text)
         if match:
             return int(match.group(1))
@@ -45,10 +45,8 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     # 2. BLOCKBUSTER ADJUSTMENT (The "Exponential" Fix)
-    # If theaters > 3000, we assume group sales/families
     if theaters > 3000:
         base_gross = base_gross * 4.0 
-        # If Awareness is viral (>60%), it gets an "Event" multiplier
         if total_aware > 60:
             base_gross = base_gross * 1.5
 
@@ -64,7 +62,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     return weighted_gross * quality_mult * buzz * comp
 
 # --- PART 2: REAL DATA PRESETS ---
-# Includes Video IDs for the "Show Trailer Views" feature
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -84,7 +81,7 @@ presets = {
     "The Moment (A24)": {
         "aware": 35, "interest": 40, "theaters": 2500, "buzz": 1.4, "comp": 0.9, 
         "wiki": "The_Moment_(2026_film)", 
-        "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000 # Teaser
+        "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000
     },
     "Wicked: Part Two": {
         "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
@@ -99,12 +96,12 @@ presets = {
     "Elden Ring (Hypothetical)": {
         "aware": 85, "interest": 90, "theaters": 4500, "buzz": 1.8, "comp": 0.7, 
         "wiki": "Elden_Ring", 
-        "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000 # Using Game Trailer as IP proxy
+        "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000
     },
 }
 
 # --- PART 3: APP INTERFACE ---
-st.set_page_config(page_title="Eternity Predictor", page_icon="🎬")
+st.set_page_config(page_title="Box Office Model", page_icon="🎬")
 st.title("🎬 Eternity: Box Office Predictor")
 
 # Preset Selector
@@ -127,4 +124,54 @@ st.sidebar.divider()
 st.sidebar.subheader("Official Trailer Views")
 if st.sidebar.button("Fetch YouTube Views"):
     with st.spinner("Checking YouTube..."):
-        yt_views = get
+        # THIS IS THE LINE THAT WAS CRASHING - NOW FIXED
+        yt_views = get_youtube_views(data['yt_id'], data['yt_fallback'])
+        st.sidebar.metric("Total Trailer Views", f"{yt_views:,}")
+        st.sidebar.caption(f"Source: Official Trailer")
+else:
+    st.sidebar.info("Click to load live YouTube data")
+
+st.sidebar.divider()
+
+st.sidebar.header("2. Model Inputs")
+# The 'value' parameter sets the default based on the chosen preset
+total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
+interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
+theaters = st.sidebar.number_input("Theater Count", 1000, 5000, value=data['theaters'])
+rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
+
+# Multipliers
+buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
+comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
+
+# Calculations
+prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp)
+
+# --- MAIN OUTPUT ---
+st.divider()
+col1, col2 = st.columns(2)
+
+with col1:
+    st.metric(label="Predicted Opening (3-Day)", value=f"${prediction/1_000_000:.2f}M")
+
+with col2:
+    st.write("### Analysis")
+    if prediction > 100_000_000:
+        st.success("🦄 MEGA BLOCKBUSTER")
+    elif prediction > 30_000_000:
+        st.success("🚀 MAJOR HIT")
+    elif prediction > 10_000_000:
+        st.info("✅ SOLID PERFORMER")
+    else:
+        st.error("⚠️ NICHE / LIMITED")
+
+# Chart
+st.write("### 📊 Benchmark Comparison")
+chart_data = {
+    "Prediction": prediction / 1_000_000,
+    "Priscilla": 5.0,
+    "The Iron Claw": 4.9,
+    "Civil War (A24 Record)": 25.7,
+    "Wicked (Projected)": 125.0 
+}
+st.bar_chart(chart_data)
