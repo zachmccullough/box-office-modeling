@@ -69,41 +69,48 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final
 
-# --- PART 2: PRESETS WITH CORRECTED BENCHMARKS ---
+# --- PART 2: PRESETS WITH SOURCE LABELS ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
         "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
+        "source_label": "✅ Official Trailer",
         "benchmarks": {"Priscilla": 5.0, "The Iron Claw": 4.9, "Civil War (A24 Max)": 25.7}
     },
     "Marty Supreme (A24)": {
         "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
         "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
+        "source_label": "✅ Official Trailer",
         "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "Pillion (A24/Element)": {
         "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
         "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
+        "source_label": "✅ Teaser / First Look",
         "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (A24)": {
         "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
         "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
+        "source_label": "✅ Official Trailer",
         "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Wicked: Part Two": {
         "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
+        "source_label": "✅ Official Trailer",
         "benchmarks": {"Frozen II": 130.0, "Barbie": 162.0, "Wonka": 39.0}
     },
     "Zootopia 2": {
         "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
+        "source_label": "✅ Official Trailer",
         "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Elden Ring (Hypothetical)": {
         "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
         "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
+        "source_label": "⚠️ Proxy (Game Launch Trailer)",
         "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
     },
 }
@@ -122,11 +129,20 @@ live_wiki, live_yt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallbac
 # --- SIDEBAR ---
 st.sidebar.header("Live Tracking Data")
 st.sidebar.caption("Auto-fetched from API")
+
 col_a, col_b = st.sidebar.columns(2)
 with col_a:
     st.metric("Wiki Views", f"{live_wiki:,}", help="30-Day Daily Avg")
 with col_b:
-    st.metric("Trailer Views", f"{live_yt/1000000:.1f}M", help="Official YouTube Upload")
+    st.metric("Trailer Views", f"{live_yt/1000000:.1f}M", help="YouTube View Count")
+
+# LINK AND SOURCE LABEL
+st.sidebar.link_button(f"📺 Watch Trailer", f"https://www.youtube.com/watch?v={data['yt_id']}")
+
+if "Proxy" in data['source_label']:
+    st.sidebar.warning(f"Source: {data['source_label']}")
+else:
+    st.sidebar.success(f"Source: {data['source_label']}")
 
 st.sidebar.divider()
 st.sidebar.header("Model Inputs")
