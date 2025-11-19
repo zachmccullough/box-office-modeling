@@ -276,7 +276,7 @@ def render_short_term():
             "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
         },
 
-        # --- BLOCKBUSTERS ---
+        # --- UPCOMING BLOCKBUSTERS (Simulated Time: Nov 2025) ---
         "Wicked: Part Two": {
             "type": "upcoming", "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
             "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
@@ -291,15 +291,24 @@ def render_short_term():
             "tracking_source": "Hypothetical", "competitors": "None",
             "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
         },
-        "A Minecraft Movie": {
-            "type": "upcoming", "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
-            "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
-            "rt_slug": "a_minecraft_movie", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Real Data", "competitors": "Micheal",
-            "intl_multiplier": 2.2, "benchmarks": {"Super Mario Bros": 146.3, "Sonic 2": 72.1}
-        },
 
-        # --- HISTORICALS ---
+        # --- HISTORICALS (Released prior to Nov 2025) ---
+        "A Minecraft Movie (Apr '25)": {
+            "type": "historical", "actual_opening": 145.0, # Simulated Actual
+            "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
+            "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
+            "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
+            "tracking_source": "Real Data (Pre-Release)", "competitors": "Micheal",
+            "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
+        },
+        "Superman (Jul '25)": {
+            "type": "historical", "actual_opening": 115.0, # Simulated Actual
+            "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
+            "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000,
+            "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
+            "tracking_source": "Estimated", "competitors": "Fantastic Four",
+            "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
+        },
         "Barbie (Historical)": {
             "type": "historical", "actual_opening": 162.0,
             "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
@@ -364,21 +373,15 @@ def render_short_term():
     elif live_yt > 15_000_000: trailer_multiplier = 1.2
     base_gross = base_gross * trailer_multiplier
 
-    # --- FIXED LOGIC START ---
-    # Replaced the hard >3000 "Cliff" with a smarter "Efficiency Check"
-    # 1. Multiplier only scales up if awareness justifies the screen count.
+    # --- EFFICIENCY SCALING ---
     blockbuster_mult = 1.0
-    
     if theaters > 2500:
-        # If you have screens but low awareness (<30%), you get almost no boost (1.1x)
-        # If you have screens AND massive awareness (>60%), you get the full blockbuster boost (3.0x)
         if total_aware > 60: blockbuster_mult = 3.0
         elif total_aware > 40: blockbuster_mult = 2.0
         elif total_aware > 25: blockbuster_mult = 1.5
         else: blockbuster_mult = 1.1
     
     base_gross = base_gross * blockbuster_mult
-    # --- FIXED LOGIC END ---
 
     cap = 5000 if theaters > 3000 else 3500
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
@@ -453,3 +456,4 @@ if view == "🔭 Long-Lead Planner":
     render_long_lead()
 else:
     render_short_term()
+    
