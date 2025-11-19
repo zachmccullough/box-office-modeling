@@ -75,7 +75,6 @@ st.markdown("""
     .status-warning { background-color: #FEF9C3; color: #713F12; border: 1px solid #fef08a; }
     .status-neutral { background-color: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
     
-    /* Tuning Advice Box */
     .tuning-box {
         background-color: #F8FAFC;
         border-left: 4px solid #3B82F6;
@@ -357,16 +356,28 @@ def render_short_term():
     comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
     st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
-    # Calculations
+    # Calculations with SMOOTHED THEATER LOGIC
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     trailer_multiplier = 1.0
     if live_yt > 60_000_000: trailer_multiplier = 1.4
     elif live_yt > 15_000_000: trailer_multiplier = 1.2
     base_gross = base_gross * trailer_multiplier
 
-    if theaters > 3000:
-        base_gross = base_gross * 3.0 
-        if total_aware > 60: base_gross = base_gross * 1.25
+    # --- FIXED LOGIC START ---
+    # Replaced the hard >3000 "Cliff" with a smarter "Efficiency Check"
+    # 1. Multiplier only scales up if awareness justifies the screen count.
+    blockbuster_mult = 1.0
+    
+    if theaters > 2500:
+        # If you have screens but low awareness (<30%), you get almost no boost (1.1x)
+        # If you have screens AND massive awareness (>60%), you get the full blockbuster boost (3.0x)
+        if total_aware > 60: blockbuster_mult = 3.0
+        elif total_aware > 40: blockbuster_mult = 2.0
+        elif total_aware > 25: blockbuster_mult = 1.5
+        else: blockbuster_mult = 1.1
+    
+    base_gross = base_gross * blockbuster_mult
+    # --- FIXED LOGIC END ---
 
     cap = 5000 if theaters > 3000 else 3500
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
@@ -441,3 +452,4 @@ if view == "🔭 Long-Lead Planner":
     render_long_lead()
 else:
     render_short_term()
+    
