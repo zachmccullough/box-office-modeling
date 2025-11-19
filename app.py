@@ -91,6 +91,14 @@ st.markdown("""
     /* 8. LINKS */
     a { color: #5E6AD2 !important; text-decoration: none; }
     a:hover { text-decoration: underline; }
+    
+    /* 9. CAPTIONS (Subtle) */
+    .caption-text {
+        font-size: 0.8rem;
+        color: #6B6F7B;
+        margin-top: -10px;
+        margin-bottom: 15px;
+    }
 
 </style>
 """, unsafe_allow_html=True)
@@ -171,8 +179,7 @@ presets = {
         "rt_slug": "eternity_2025", 
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)",
-        "competitors": "Wicked: Part Two, Zootopia 2 (Thanksgiving Weekend)",
-        # UPDATED BENCHMARKS: Swapped Civil War for Romance Comps
+        "competitors": "Wicked: Part Two, Zootopia 2",
         "benchmarks": {"Priscilla": 5.0, "Age of Adaline (Goal)": 13.2, "Me Before You (Breakout)": 18.7}
     },
     "Marty Supreme (A24)": {
@@ -259,33 +266,40 @@ with col_b:
 st.sidebar.link_button(f"▶ Watch Trailer", f"https://www.youtube.com/watch?v={data['yt_id']}")
 st.sidebar.markdown("---")
 
+# --- INPUTS SECTION ---
 st.sidebar.markdown("### 🎛️ Scenario Inputs")
 
-# DATA SOURCE LABEL
+# 1. THEATER COUNT (FIXED: ADDED STEP)
+st.sidebar.caption("Distribution Strategy")
+theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'], step=100)
+st.sidebar.markdown("---")
+
+# 2. AWARENESS & INTEREST (FIXED: TIED TO SOURCE)
+st.sidebar.markdown("#### 📊 Audience Tracking")
+
+# Dynamic Source Label placed RIGHT above the sliders
 if "Real" in data['tracking_source']:
-    st.sidebar.success(f"📊 {data['tracking_source']}")
+    st.sidebar.caption(f"✅ Source: {data['tracking_source']}")
 else:
-    st.sidebar.warning(f"📉 {data['tracking_source']}")
+    st.sidebar.caption(f"⚠️ Source: {data['tracking_source']}")
 
 total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
 interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
-theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'])
 
-# RT LOGIC
-if live_rt:
-    rt_label = f"Rotten Tomatoes Score (Live)"
-    rt_default = live_rt
-    st.sidebar.success(f"✅ Live Score Found: {live_rt}%")
-else:
-    rt_label = "Estimated Score (Unreleased)"
-    rt_default = 70
+st.sidebar.markdown("---")
 
+# 3. OTHER FACTORS
+rt_label = f"Rotten Tomatoes Score (Live)" if live_rt else "Estimated Score (Unreleased)"
+rt_default = live_rt if live_rt else 70
+if not live_rt: st.sidebar.caption("⚠️ No live score. Defaulting to Neutral (70).")
 rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default)
 
 buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
 
-st.sidebar.info(f"⚔️ **Competition:**\n{data['competitors']}")
+# 4. COMPETITION (FIXED: LIST UNDER SLIDER)
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
+# The list is now a caption underneath the slider
+st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
 # --- CALCULATIONS ---
 prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
