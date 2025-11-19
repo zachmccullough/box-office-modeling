@@ -16,10 +16,12 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     
-    /* 2. SIDEBAR STYLING */
+    /* 2. SIDEBAR STYLING (WIDER WIDTH FIX) */
     [data-testid="stSidebar"] {
         background-color: #F7F8FA;
         border-right: 1px solid #E2E2E5;
+        min-width: 400px !important;
+        max-width: 400px !important;
     }
     
     /* 3. METRIC CARDS (Clean White) */
