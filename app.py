@@ -30,7 +30,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     return weighted_gross * quality_mult * buzz * comp
 
-# --- PART 2: REAL DATA PRESETS (The Quorum Data) ---
+# --- PART 2: REAL DATA PRESETS ---
 presets = {
     "Custom / Manual": {"aware": 5, "interest": 35, "theaters": 2200, "buzz": 1.0, "comp": 0.9, "wiki": "Eternity_(2025_film)"},
     "Eternity (Actual Tracking)": {"aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, "wiki": "Eternity_(2025_film)"},
@@ -63,8 +63,10 @@ total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware
 interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
 theaters = st.sidebar.number_input("Theater Count", 1000, 4500, value=data['theaters'])
 rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
-buzz = st.sidebar.select_slider("Social Buzz", options=[0.8, 1.0, 1.2, 1.5], value=data['buzz'])
-comp = st.sidebar.select_slider("Competition", options=[0.8, 0.9, 1.0], value=data['comp'])
+
+# CHANGED: Switched from select_slider to standard slider to prevent crash
+buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
+comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 
 # Calculations
 prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp)
