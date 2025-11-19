@@ -54,7 +54,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     # Base Calculation
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # Trailer Boost
+    # Trailer Boost Logic (This is the "Hidden" Buzz)
     trailer_multiplier = 1.0
     if trailer_views > 60_000_000: trailer_multiplier = 1.4
     elif trailer_views > 15_000_000: trailer_multiplier = 1.2
@@ -70,7 +70,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
     
     # Multipliers
-    # Neutral Zone (50-80) = 1.0x (No effect)
     qual_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     raw = weighted_gross * qual_mult * buzz * comp
 
@@ -82,13 +81,15 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final
 
-# --- PART 2: PRESETS ---
+# --- PART 2: PRESETS (NOW WITH COMPETITION & SOURCES) ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
         "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
         "rt_slug": "eternity_2025", 
         "source_label": "✅ Official Trailer",
+        "tracking_source": "Real Data (The Quorum)",
+        "competitors": "Wicked: Part Two, Zootopia 2 (Thanksgiving Weekend)",
         "benchmarks": {"Priscilla": 5.0, "The Iron Claw": 4.9, "Civil War (A24 Max)": 25.7}
     },
     "Marty Supreme (A24)": {
@@ -96,6 +97,8 @@ presets = {
         "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
         "rt_slug": "marty_supreme",
         "source_label": "✅ Official Trailer",
+        "tracking_source": "Estimated (Based on Uncut Gems / Chalamet Comps)",
+        "competitors": "Avatar: Fire and Ash, SpongeBob (December Corridor)",
         "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "Pillion (A24/Element)": {
@@ -103,6 +106,8 @@ presets = {
         "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
         "rt_slug": "pillion",
         "source_label": "✅ Teaser / First Look",
+        "tracking_source": "Estimated (Arthouse Niche)",
+        "competitors": "Limited Release / Platform rollout competition",
         "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (A24)": {
@@ -110,6 +115,8 @@ presets = {
         "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
         "rt_slug": "the_moment_2026",
         "source_label": "✅ Official Trailer",
+        "tracking_source": "Estimated (Based on After Yang / Sci-Fi Comps)",
+        "competitors": "Project Hail Mary, The Batman Part II (Hypothetical)",
         "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Wicked: Part Two": {
@@ -117,6 +124,8 @@ presets = {
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
         "rt_slug": "wicked_part_two",
         "source_label": "✅ Official Trailer",
+        "tracking_source": "Real Data (The Quorum)",
+        "competitors": "Zootopia 2, Eternity",
         "benchmarks": {"Frozen II": 130.0, "Barbie": 162.0, "Wonka": 39.0}
     },
     "Zootopia 2": {
@@ -124,6 +133,8 @@ presets = {
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
         "rt_slug": "zootopia_2",
         "source_label": "✅ Official Trailer",
+        "tracking_source": "Real Data (The Quorum)",
+        "competitors": "Wicked: Part Two",
         "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Elden Ring (Hypothetical)": {
@@ -131,6 +142,8 @@ presets = {
         "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
         "rt_slug": None,
         "source_label": "⚠️ Proxy (Game Launch Trailer)",
+        "tracking_source": "Hypothetical (Based on FNAF / Mario)",
+        "competitors": "Direct-to-Fan Event (Minimal direct competition)",
         "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
     },
 }
@@ -166,26 +179,33 @@ else:
 st.sidebar.divider()
 st.sidebar.header("Model Inputs")
 
-total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
-interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
+# DATA SOURCE LABEL
+if "Real" in data['tracking_source']:
+    st.sidebar.success(f"📊 {data['tracking_source']}")
+else:
+    st.sidebar.warning(f"📉 {data['tracking_source']}")
+
+total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'], help="NRG/Quorum metric: % of audience who know the movie exists.")
+interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'], help="NRG/Quorum metric: % of audience who say they will 'definitely' see it.")
 theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'])
 
-# --- SMART ROTTEN TOMATOES LOGIC ---
-# Logic: If live score exists, use it.
-# If NOT, default to 70 (Neutral / No Effect) and label it "Estimated".
+# RT LOGIC
 if live_rt:
     rt_label = f"Rotten Tomatoes Score (Live)"
     rt_default = live_rt
     st.sidebar.success(f"✅ Live Score Found: {live_rt}%")
 else:
     rt_label = "Estimated Score (Unreleased)"
-    rt_default = 70  # Neutral default (1.0x multiplier)
-    st.sidebar.caption("⚠️ No live score found. Defaulting to Neutral (70).")
+    rt_default = 70
+    st.sidebar.caption("⚠️ No live score. Defaulting to Neutral (70).")
 
-rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default)
+rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default, help="Scores <50 hurt the gross. Scores >80 boost the gross. 70 is neutral.")
 
-buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
-comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
+buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']), help="Manual adjustment for TikTok/Twitter virality. 1.0 is normal.")
+
+# COMPETITION BOX
+st.sidebar.info(f"⚔️ **Competition:**\n{data['competitors']}")
+comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']), help="1.0 = Empty Weekend. 0.8 = Heavy Competition.")
 
 # --- CALCULATIONS ---
 prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
@@ -210,13 +230,20 @@ with col2:
 
 # --- DYNAMIC CHART ---
 st.write(f"### 📊 Benchmarks: {selected_preset.split('(')[0]}")
-
-# Create chart data dynamically based on the selected movie
 chart_data = data['benchmarks'].copy()
 chart_data["PREDICTION"] = prediction / 1_000_000
-
-# Sort dict for better visual
 sorted_chart = dict(sorted(chart_data.items(), key=lambda item: item[1]))
-
 st.bar_chart(sorted_chart)
 st.caption("Benchmarks are Actual Wide Release Opening Weekends in Millions.")
+
+# --- MATH EXPLAINER ---
+with st.expander("🔎 How is this calculated?"):
+    st.markdown("""
+    **The Formula:**
+    1. **Base Gross:** Derived from `Awareness` × `Interest` (Linear scaling).
+    2. **Trailer Boost:** If YouTube views > 10M, we apply a **1.25x** multiplier. If > 50M, **1.5x**.
+    3. **Social Buzz:** Multiplied by your manual slider input (e.g., 1.2x).
+    4. **Competition:** Dampened by the competition factor (e.g., 0.85x).
+    5. **Quality:** If RT Score > 80, **+15%**. If < 50, **-15%**.
+    6. **Reality Cap:** For predictions over $150M, we apply logarithmic dampening to simulate capacity limits.
+    """)
