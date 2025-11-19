@@ -13,42 +13,30 @@ st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 
-    /* 1. ROOT VARS (Shadcn Zinc Theme) */
     :root {
         --background: #FFFFFF;
         --foreground: #09090B;
         --card: #FFFFFF;
         --card-foreground: #09090B;
-        --popover: #FFFFFF;
-        --popover-foreground: #09090B;
-        --primary: #18181B;
-        --primary-foreground: #FAFAFA;
-        --muted: #F4F4F5;
-        --muted-foreground: #71717A;
-        --accent: #F4F4F5;
-        --accent-foreground: #18181B;
         --border: #E4E4E7;
         --input: #E4E4E7;
         --ring: #18181B;
         --radius: 0.5rem;
     }
 
-    /* 2. GLOBAL RESETS */
     .stApp {
         background-color: var(--background);
         color: var(--foreground);
         font-family: 'Inter', sans-serif;
     }
     
-    /* 3. SIDEBAR */
     [data-testid="stSidebar"] {
-        background-color: #FAFAFA; /* Zinc-50 */
+        background-color: #FAFAFA;
         border-right: 1px solid var(--border);
         min-width: 400px !important;
         max-width: 400px !important;
     }
 
-    /* 4. CARDS (Metrics & Charts) */
     [data-testid="stMetric"], [data-testid="stExpander"] {
         background-color: var(--card);
         color: var(--card-foreground);
@@ -58,7 +46,6 @@ st.markdown("""
         padding: 16px;
     }
     
-    /* 5. TYPOGRAPHY */
     h1, h2, h3 {
         font-family: 'Inter', sans-serif;
         font-weight: 700;
@@ -68,7 +55,7 @@ st.markdown("""
     [data-testid="stMetricLabel"] {
         font-size: 0.875rem;
         font-weight: 500;
-        color: var(--muted-foreground);
+        color: #71717A;
     }
     [data-testid="stMetricValue"] {
         font-size: 1.5rem;
@@ -76,7 +63,6 @@ st.markdown("""
         letter-spacing: -0.025em;
     }
 
-    /* 6. INPUTS (The Shadcn Look) */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
         background-color: transparent;
         border-radius: var(--radius);
@@ -86,14 +72,12 @@ st.markdown("""
         height: 2.5rem;
         transition: all 0.1s;
     }
-    /* The Signature Focus Ring */
     .stTextInput input:focus, .stNumberInput input:focus, .stSelectbox div[data-baseweb="select"]:focus-within {
         border-color: var(--ring);
         box-shadow: 0 0 0 2px var(--background), 0 0 0 4px var(--ring);
         outline: none;
     }
 
-    /* 7. BADGES */
     .status-badge {
         display: inline-flex;
         align-items: center;
@@ -104,30 +88,9 @@ st.markdown("""
         line-height: 1;
         margin-bottom: 12px;
     }
-    .status-success {
-        background-color: #DCFCE7; /* Green-100 */
-        color: #14532D;           /* Green-900 */
-        border: 1px solid #bbf7d0;
-    }
-    .status-warning {
-        background-color: #FEF9C3; /* Yellow-100 */
-        color: #713F12;           /* Yellow-900 */
-        border: 1px solid #fef08a;
-    }
+    .status-success { background-color: #DCFCE7; color: #14532D; border: 1px solid #bbf7d0; }
+    .status-warning { background-color: #FEF9C3; color: #713F12; border: 1px solid #fef08a; }
     
-    /* 8. BUTTONS (Secondary style) */
-    button[kind="secondary"] {
-        background-color: var(--background);
-        color: var(--foreground);
-        border: 1px solid var(--input);
-        border-radius: var(--radius);
-        font-weight: 500;
-    }
-    button[kind="secondary"]:hover {
-        background-color: var(--accent);
-    }
-    
-    /* 9. LINKS */
     a { color: var(--foreground) !important; text-decoration: underline; text-decoration-thickness: 1px;}
     a:hover { opacity: 0.8; }
 
@@ -137,7 +100,6 @@ st.markdown("""
 # --- PART 1: CACHED DATA TOOLS ---
 @st.cache_data(ttl=3600)
 def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
-    # 1. Wikipedia
     wiki_views = 0
     try:
         headers = {'User-Agent': 'BoxOfficePredictor/1.0'}
@@ -150,7 +112,6 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     except:
         wiki_views = 0
 
-    # 2. YouTube
     yt_views = yt_fallback
     try:
         url = f"https://www.youtube.com/watch?v={yt_id}"
@@ -162,7 +123,6 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     except:
         pass 
 
-    # 3. Rotten Tomatoes
     rt_score = None 
     if rt_slug:
         try:
@@ -181,6 +141,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     return wiki_views, yt_views, rt_score
 
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views):
+    # 1. OPENING WEEKEND CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     trailer_multiplier = 1.0
@@ -196,14 +157,32 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
     
     qual_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
-    raw = weighted_gross * qual_mult * buzz * comp
+    raw_opening = weighted_gross * qual_mult * buzz * comp
 
-    if raw > 150_000_000:
-        final = 150_000_000 + (math.sqrt(raw - 150_000_000) * 3500)
+    if raw_opening > 150_000_000:
+        final_opening = 150_000_000 + (math.sqrt(raw_opening - 150_000_000) * 3500)
     else:
-        final = raw
+        final_opening = raw_opening
+    
+    # 2. DOMESTIC TOTAL (LEGS)
+    # Base multiplier is 2.7x. High RT scores boost legs.
+    legs = 2.7
+    if rt_score > 80: legs += 0.5   # Great WOM
+    elif rt_score < 50: legs -= 0.6 # Poor WOM
+    
+    # Smaller release = usually longer legs (platforming)
+    if theaters < 2000: legs += 0.4
+    
+    dom_total = final_opening * legs
+    
+    # 3. GLOBAL TOTAL
+    # Blockbusters (>3000 screens) usually have 40/60 split. Indies usually 60/40.
+    if theaters > 3000:
+        global_total = dom_total * 2.5 # Massive Int'l Appeal
+    else:
+        global_total = dom_total * 1.6 # Domestic Heavy
         
-    return final
+    return final_opening, dom_total, global_total
 
 # --- PART 2: PRESETS ---
 presets = {
@@ -276,18 +255,15 @@ presets = {
 st.title("🎬 Box Office Model")
 st.markdown("---")
 
-# 1. SELECTOR
 selected_preset = st.selectbox("Select Movie Project:", list(presets.keys()), index=0)
 data = presets[selected_preset]
 
-# 2. AUTO-FETCH
 live_wiki, live_yt, live_rt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallback'], data['rt_slug'])
 
 # --- SIDEBAR ---
 st.sidebar.markdown("### 📡 Live Signal Tracking")
 st.sidebar.caption("Real-time metrics from APIs")
 
-# CUSTOM BADGE FOR SOURCE
 badge_class = "status-success" if data['source_status'] == "success" else "status-warning"
 st.sidebar.markdown(f'<span class="status-badge {badge_class}">{data["source_label"]}</span>', unsafe_allow_html=True)
 
@@ -300,17 +276,13 @@ with col_b:
 st.sidebar.link_button(f"▶ Watch Trailer", f"https://www.youtube.com/watch?v={data['yt_id']}")
 st.sidebar.markdown("---")
 
-# --- INPUTS SECTION ---
 st.sidebar.markdown("### 🎛️ Scenario Inputs")
 
-# 1. THEATER COUNT
 st.sidebar.caption("Distribution Strategy")
 theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'], step=100)
 st.sidebar.markdown("---")
 
-# 2. AWARENESS & INTEREST
 st.sidebar.markdown("#### 📊 Audience Tracking")
-
 if "Real" in data['tracking_source']:
     st.sidebar.caption(f"✅ Source: {data['tracking_source']}")
 else:
@@ -321,7 +293,6 @@ interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['intere
 
 st.sidebar.markdown("---")
 
-# 3. OTHER FACTORS
 if live_rt:
     rt_label = f"Rotten Tomatoes Score (Live)"
     rt_default = live_rt
@@ -332,60 +303,65 @@ else:
     st.sidebar.caption("⚠️ No live score. Defaulting to Neutral (70).")
 
 rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default)
-
 buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
 
-# 4. COMPETITION
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
 # --- CALCULATIONS ---
-prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
+opening, dom_total, global_total = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, live_yt)
 
 # --- MAIN DASHBOARD ---
-col1, col2 = st.columns([1, 2])
+# Expanded to 3 columns to show the new Totals
+col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.metric(label="Predicted Opening (3-Day)", value=f"${prediction/1_000_000:.2f}M")
-    
-    if prediction > 100_000_000:
-        st.success("🦄 MEGA BLOCKBUSTER")
-    elif prediction > 30_000_000:
-        st.success("🚀 MAJOR HIT")
-    elif prediction > 10_000_000:
-        st.info("✅ SOLID PERFORMER")
-    else:
-        st.error("⚠️ NICHE / LIMITED")
-
+    st.metric(label="Predicted Opening (3-Day)", value=f"${opening/1_000_000:.2f}M")
 with col2:
+    st.metric(label="Projected Domestic Total", value=f"${dom_total/1_000_000:.2f}M")
+with col3:
+    st.metric(label="Projected Global Total", value=f"${global_total/1_000_000:.2f}M")
+
+# Status Banner
+if opening > 100_000_000:
+    st.success("🦄 MEGA BLOCKBUSTER")
+elif opening > 30_000_000:
+    st.success("🚀 MAJOR HIT")
+elif opening > 10_000_000:
+    st.info("✅ SOLID PERFORMER")
+else:
+    st.error("⚠️ NICHE / LIMITED")
+
+st.markdown("---")
+
+# --- CHART ---
+col_chart, col_info = st.columns([2, 1])
+
+with col_chart:
     st.markdown(f"#### 📊 Benchmark Comparison: {selected_preset.split('(')[0]}")
     
-    # PREPARE ALTAIR DATA (FIXED)
     chart_data = data['benchmarks'].copy()
-    chart_data["PREDICTION"] = prediction / 1_000_000
+    chart_data["PREDICTION"] = opening / 1_000_000
     
     df = pd.DataFrame({
         "Movie": list(chart_data.keys()),
         "Gross": list(chart_data.values())
     })
 
-    # Base Chart
     base = alt.Chart(df).encode(
         x=alt.X('Gross', title='Opening Weekend ($M)', axis=alt.Axis(grid=False)),
         y=alt.Y('Movie', sort='-x', title=None, axis=alt.Axis(labelLimit=200)),
         tooltip=['Movie', 'Gross']
     )
 
-    # Bars
     bars = base.mark_bar().encode(
         color=alt.condition(
             alt.datum.Movie == 'PREDICTION',
-            alt.value('#18181B'),  # Zinc-950
-            alt.value('#E4E4E7')   # Zinc-200
+            alt.value('#18181B'),
+            alt.value('#E4E4E7')
         )
     )
 
-    # Text Labels
     text = base.mark_text(
         align='left',
         baseline='middle',
@@ -394,19 +370,23 @@ with col2:
         text=alt.Text('Gross', format=',.1f')
     )
 
-    # Layering (Combine first, THEN configure)
     chart = (bars + text).properties(height=300).configure_view(strokeWidth=0)
-
     st.altair_chart(chart, use_container_width=True)
 
-# --- FOOTER ---
-with st.expander("🔎 View Methodology"):
-    st.markdown("""
-    **The Formula:**
-    1. **Base Gross:** Derived from `Awareness` × `Interest` (Linear scaling).
-    2. **Trailer Boost:** If YouTube views > 10M, we apply a **1.25x** multiplier. If > 50M, **1.5x**.
-    3. **Social Buzz:** Multiplied by your manual slider input (e.g., 1.2x).
-    4. **Competition:** Dampened by the competition factor (e.g., 0.85x).
-    5. **Quality:** If RT Score > 80, **+15%**. If < 50, **-15%**.
-    6. **Reality Cap:** For predictions over $150M, we apply logarithmic dampening.
-    """)
+with col_info:
+    with st.expander("🔎 View Methodology", expanded=True):
+        st.markdown("""
+        **1. Opening Weekend:**
+        * Driven by Awareness × Interest.
+        * Boosted by Trailer Views (>10M).
+        * Dampened by Competition.
+        
+        **2. Domestic Total:**
+        * Applies a "Legs Multiplier" to Opening.
+        * High RT scores (>80) boost legs.
+        * Low scores (<50) cut legs.
+        
+        **3. Global Total:**
+        * Blockbusters (>3k screens) = ~40% Domestic share.
+        * Indie/Dramas (<3k screens) = ~60% Domestic share.
+        """)
