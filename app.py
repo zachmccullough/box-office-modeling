@@ -360,29 +360,33 @@ with col1:
 with col2:
     st.markdown(f"#### 📊 Benchmark Comparison: {selected_preset.split('(')[0]}")
     
-    # PREPARE ALTAIR DATA
+    # PREPARE ALTAIR DATA (FIXED)
     chart_data = data['benchmarks'].copy()
     chart_data["PREDICTION"] = prediction / 1_000_000
     
-    # Convert to DataFrame for Altair
     df = pd.DataFrame({
         "Movie": list(chart_data.keys()),
         "Gross": list(chart_data.values())
     })
 
-    # Create Horizontal Bar Chart
-    c = alt.Chart(df).mark_bar().encode(
+    # Base Chart
+    base = alt.Chart(df).encode(
         x=alt.X('Gross', title='Opening Weekend ($M)', axis=alt.Axis(grid=False)),
         y=alt.Y('Movie', sort='-x', title=None, axis=alt.Axis(labelLimit=200)),
+        tooltip=['Movie', 'Gross']
+    )
+
+    # Bars
+    bars = base.mark_bar().encode(
         color=alt.condition(
             alt.datum.Movie == 'PREDICTION',
-            alt.value('#18181B'),  # Zinc-950 (Black) for Prediction
-            alt.value('#E4E4E7')   # Zinc-200 (Light Grey) for Comps
-        ),
-        tooltip=['Movie', 'Gross']
-    ).properties(height=300).configure_view(strokeWidth=0)
+            alt.value('#18181B'),  # Zinc-950
+            alt.value('#E4E4E7')   # Zinc-200
+        )
+    )
 
-    text = c.mark_text(
+    # Text Labels
+    text = base.mark_text(
         align='left',
         baseline='middle',
         dx=3
@@ -390,7 +394,10 @@ with col2:
         text=alt.Text('Gross', format=',.1f')
     )
 
-    st.altair_chart(c + text, use_container_width=True)
+    # Layering (Combine first, THEN configure)
+    chart = (bars + text).properties(height=300).configure_view(strokeWidth=0)
+
+    st.altair_chart(chart, use_container_width=True)
 
 # --- FOOTER ---
 with st.expander("🔎 View Methodology"):
@@ -403,4 +410,3 @@ with st.expander("🔎 View Methodology"):
     5. **Quality:** If RT Score > 80, **+15%**. If < 50, **-15%**.
     6. **Reality Cap:** For predictions over $150M, we apply logarithmic dampening.
     """)
-    
