@@ -102,7 +102,7 @@ presets = {
 
 # --- PART 3: APP INTERFACE ---
 st.set_page_config(page_title="Box Office Model", page_icon="🎬")
-st.title("🎬 Eternity: Box Office Predictor")
+st.title("🎬 Box Office Model")
 
 # Preset Selector
 selected_preset = st.selectbox("Select Movie / Comp:", list(presets.keys()), index=0)
