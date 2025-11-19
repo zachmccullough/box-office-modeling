@@ -6,10 +6,9 @@ from datetime import datetime, timedelta
 
 # --- PART 1: CACHED DATA TOOLS ---
 @st.cache_data(ttl=3600)
-def get_live_data(wiki_title, yt_id, yt_fallback):
+def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     """
-    Fetches BOTH Wikipedia and YouTube data in one go.
-    Returns a tuple: (wiki_views, yt_views)
+    Fetches Wiki, YouTube, AND Rotten Tomatoes data.
     """
     # 1. Wikipedia
     wiki_views = 0
@@ -22,7 +21,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback):
         total = sum([item['views'] for item in data['items']])
         wiki_views = int(total / len(data['items']))
     except:
-        wiki_views = 0 # Fail silent
+        wiki_views = 0
 
     # 2. YouTube
     yt_views = yt_fallback
@@ -36,7 +35,20 @@ def get_live_data(wiki_title, yt_id, yt_fallback):
     except:
         pass 
 
-    return wiki_views, yt_views
+    # 3. Rotten Tomatoes Scraper
+    rt_score = None 
+    if rt_slug:
+        try:
+            url = f"https://www.rottentomatoes.com/m/{rt_slug}"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
+            response = requests.get(url, headers=headers)
+            match = re.search(r'tomatometerscore="(\d+)"', response.text)
+            if match:
+                rt_score = int(match.group(1))
+        except:
+            pass
+
+    return wiki_views, yt_views, rt_score
 
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views):
     # Base Calculation
@@ -58,6 +70,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
     
     # Multipliers
+    # Neutral Zone (50-80) = 1.0x (No effect)
     qual_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     raw = weighted_gross * qual_mult * buzz * comp
 
@@ -69,47 +82,54 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final
 
-# --- PART 2: PRESETS WITH SOURCE LABELS ---
+# --- PART 2: PRESETS ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
         "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
+        "rt_slug": "eternity_2025", 
         "source_label": "✅ Official Trailer",
         "benchmarks": {"Priscilla": 5.0, "The Iron Claw": 4.9, "Civil War (A24 Max)": 25.7}
     },
     "Marty Supreme (A24)": {
         "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
         "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
+        "rt_slug": "marty_supreme",
         "source_label": "✅ Official Trailer",
         "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "Pillion (A24/Element)": {
         "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
         "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
+        "rt_slug": "pillion",
         "source_label": "✅ Teaser / First Look",
         "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (A24)": {
         "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
         "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
+        "rt_slug": "the_moment_2026",
         "source_label": "✅ Official Trailer",
         "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Wicked: Part Two": {
         "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
+        "rt_slug": "wicked_part_two",
         "source_label": "✅ Official Trailer",
         "benchmarks": {"Frozen II": 130.0, "Barbie": 162.0, "Wonka": 39.0}
     },
     "Zootopia 2": {
         "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
+        "rt_slug": "zootopia_2",
         "source_label": "✅ Official Trailer",
         "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Elden Ring (Hypothetical)": {
         "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
         "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
+        "rt_slug": None,
         "source_label": "⚠️ Proxy (Game Launch Trailer)",
         "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
     },
@@ -124,7 +144,7 @@ selected_preset = st.selectbox("Select Movie / Comp:", list(presets.keys()), ind
 data = presets[selected_preset]
 
 # 2. AUTO-FETCH DATA
-live_wiki, live_yt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallback'])
+live_wiki, live_yt, live_rt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallback'], data['rt_slug'])
 
 # --- SIDEBAR ---
 st.sidebar.header("Live Tracking Data")
@@ -136,7 +156,6 @@ with col_a:
 with col_b:
     st.metric("Trailer Views", f"{live_yt/1000000:.1f}M", help="YouTube View Count")
 
-# LINK AND SOURCE LABEL
 st.sidebar.link_button(f"📺 Watch Trailer", f"https://www.youtube.com/watch?v={data['yt_id']}")
 
 if "Proxy" in data['source_label']:
@@ -150,7 +169,21 @@ st.sidebar.header("Model Inputs")
 total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
 interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
 theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'])
-rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
+
+# --- SMART ROTTEN TOMATOES LOGIC ---
+# Logic: If live score exists, use it.
+# If NOT, default to 70 (Neutral / No Effect) and label it "Estimated".
+if live_rt:
+    rt_label = f"Rotten Tomatoes Score (Live)"
+    rt_default = live_rt
+    st.sidebar.success(f"✅ Live Score Found: {live_rt}%")
+else:
+    rt_label = "Estimated Score (Unreleased)"
+    rt_default = 70  # Neutral default (1.0x multiplier)
+    st.sidebar.caption("⚠️ No live score found. Defaulting to Neutral (70).")
+
+rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default)
+
 buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 
