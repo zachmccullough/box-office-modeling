@@ -5,9 +5,6 @@ import math
 from datetime import datetime, timedelta
 
 # --- PART 1: CACHED DATA TOOLS ---
-# We use @st.cache_data so the API is only hit once per hour per movie.
-# This makes the app feel "instant" when switching back and forth.
-
 @st.cache_data(ttl=3600)
 def get_live_data(wiki_title, yt_id, yt_fallback):
     """
@@ -37,7 +34,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback):
         if match:
             yt_views = int(match.group(1))
     except:
-        pass # Keep fallback if fail
+        pass 
 
     return wiki_views, yt_views
 
@@ -72,7 +69,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final
 
-# --- PART 2: PRESETS WITH CUSTOM BENCHMARKS ---
+# --- PART 2: PRESETS WITH CORRECTED BENCHMARKS ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -82,17 +79,17 @@ presets = {
     "Marty Supreme (A24)": {
         "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
         "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
-        "benchmarks": {"Uncut Gems": 18.8, "Lady Bird": 13.5, "Challengers": 15.0}
+        "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "Pillion (A24/Element)": {
         "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
         "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
-        "benchmarks": {"Past Lives": 3.5, "The Whale": 6.0, "Zone of Interest": 1.5}
+        "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (A24)": {
         "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
         "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
-        "benchmarks": {"Ex Machina": 6.8, "After Yang": 0.5, "Her": 10.0}
+        "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Wicked: Part Two": {
         "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
@@ -102,7 +99,7 @@ presets = {
     "Zootopia 2": {
         "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
-        "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.0}
+        "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Elden Ring (Hypothetical)": {
         "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
@@ -119,8 +116,7 @@ st.title("🎬 Box Office Model")
 selected_preset = st.selectbox("Select Movie / Comp:", list(presets.keys()), index=0)
 data = presets[selected_preset]
 
-# 2. AUTO-FETCH DATA (Runs immediately upon selection)
-# This uses the cached function, so it's instant after the first load
+# 2. AUTO-FETCH DATA
 live_wiki, live_yt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallback'])
 
 # --- SIDEBAR ---
@@ -174,4 +170,4 @@ chart_data["PREDICTION"] = prediction / 1_000_000
 sorted_chart = dict(sorted(chart_data.items(), key=lambda item: item[1]))
 
 st.bar_chart(sorted_chart)
-st.caption("Benchmarks are actual Domestic Opening Weekends in Millions.")
+st.caption("Benchmarks are Actual Wide Release Opening Weekends in Millions.")
