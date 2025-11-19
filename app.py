@@ -44,15 +44,13 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     # 1. Base Calculation (Linear)
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # 2. TRAILER / VIRAL BOOST (New Feature)
-    # If trailer views are huge, we assume 'Awareness' numbers are lagging behind reality.
+    # 2. TRAILER / VIRAL BOOST
     trailer_multiplier = 1.0
     if trailer_views > 50_000_000:
-        trailer_multiplier = 1.5  # Mega Viral
+        trailer_multiplier = 1.5 
     elif trailer_views > 10_000_000:
-        trailer_multiplier = 1.25 # Star Power / Viral (The Chalamet Fix)
+        trailer_multiplier = 1.25
     
-    # Apply the boost to the base gross
     base_gross = base_gross * trailer_multiplier
 
     # 3. BLOCKBUSTER ADJUSTMENT
@@ -71,7 +69,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
     raw_prediction = weighted_gross * quality_mult * buzz * comp
 
-    # 6. REALITY CAP (Logarithmic Dampening)
+    # 6. REALITY CAP
     if raw_prediction > 150_000_000:
         excess = raw_prediction - 150_000_000
         dampened_excess = math.sqrt(excess) * 3500 
@@ -142,7 +140,6 @@ st.sidebar.divider()
 
 # YouTube
 st.sidebar.subheader("Official Trailer Views")
-# We auto-load the fallback first so the math works instantly
 current_yt_views = data['yt_fallback']
 
 if st.sidebar.button("Fetch LIVE YouTube Views"):
@@ -159,7 +156,10 @@ st.sidebar.header("2. Model Inputs")
 # The 'value' parameter sets the default based on the chosen preset
 total_aware = st.sidebar.slider("Total Awareness (%)", 0, 100, value=data['aware'])
 interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['interest'])
-theaters = st.sidebar.number_input("Theater Count", 1000, 5000, value=data['theaters'])
+
+# --- FIX APPLIED HERE: Min Value changed from 1000 to 100 ---
+theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'])
+
 rt_score = st.sidebar.slider("Rotten Tomatoes Score", 0, 100, value=85)
 
 # Multipliers
@@ -167,7 +167,6 @@ buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['b
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
 
 # Calculations
-# We now pass 'current_yt_views' into the math function
 prediction = calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, current_yt_views)
 
 # --- MAIN OUTPUT ---
