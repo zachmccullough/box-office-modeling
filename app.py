@@ -133,14 +133,25 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     except:
         pass 
 
-    # 3. Rotten Tomatoes
+    # 3. Rotten Tomatoes (Improved Scraper)
     rt_score = None 
     if rt_slug:
         try:
             url = f"https://www.rottentomatoes.com/m/{rt_slug}"
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/115.0.0.0 Safari/537.36'}
             response = requests.get(url, headers=headers)
+            
+            # Strategy 1: Look for standard Tomatometer (Released films)
             match = re.search(r'tomatometerscore="(\d+)"', response.text)
+            
+            # Strategy 2: Look for JSON-LD Schema (Unreleased / Festival films)
+            if not match:
+                match = re.search(r'"ratingValue":\s*"(\d+)"', response.text)
+                
+            # Strategy 3: Look for "percentage" class (Older pages)
+            if not match:
+                match = re.search(r'class="percentage">\s*(\d+)%', response.text)
+
             if match:
                 rt_score = int(match.group(1))
         except:
