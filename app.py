@@ -276,7 +276,7 @@ def render_short_term():
             "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
         },
 
-        # --- UPCOMING BLOCKBUSTERS (Simulated Time: Nov 2025) ---
+        # --- BLOCKBUSTERS ---
         "Wicked: Part Two": {
             "type": "upcoming", "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
             "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
@@ -292,17 +292,25 @@ def render_short_term():
             "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
         },
 
-        # --- HISTORICALS (Released prior to Nov 2025) ---
-        "A Minecraft Movie (Apr '25)": {
-            "type": "historical", "actual_opening": 145.0, # Simulated Actual
+        # --- HISTORICALS ---
+        "Civil War (Historical)": {
+            "type": "historical", "actual_opening": 25.7,
+            "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
+            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000,
+            "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
+            "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
+            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
+        },
+        "A Minecraft Movie (Historical)": {
+            "type": "historical", "actual_opening": 145.0,
             "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
             "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
             "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
-            "tracking_source": "Real Data (Pre-Release)", "competitors": "Micheal",
+            "tracking_source": "Real Data", "competitors": "Micheal",
             "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
         },
-        "Superman (Jul '25)": {
-            "type": "historical", "actual_opening": 115.0, # Simulated Actual
+        "Superman (Historical)": {
+            "type": "historical", "actual_opening": 115.0,
             "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
             "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000,
             "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
@@ -456,4 +464,3 @@ if view == "🔭 Long-Lead Planner":
     render_long_lead()
 else:
     render_short_term()
-    
