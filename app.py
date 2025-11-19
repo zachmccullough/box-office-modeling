@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 import re
+import math
 from datetime import datetime, timedelta
 
 # --- PART 1: THE TOOLS (Functions) ---
@@ -31,7 +32,6 @@ def get_youtube_views(video_id, fallback_views):
     
     try:
         response = requests.get(url, headers=headers)
-        # Regex to find the view count in the raw HTML
         match = re.search(r'"viewCount":"(\d+)"', response.text)
         if match:
             return int(match.group(1))
@@ -44,29 +44,42 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp):
     # 1. Base Calculation (Linear)
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # 2. BLOCKBUSTER ADJUSTMENT (The "Exponential" Fix)
+    # 2. BLOCKBUSTER ADJUSTMENT (Tuned Down)
+    # We lowered the multipliers here to prevent runaway math
     if theaters > 3000:
-        base_gross = base_gross * 4.0 
+        base_gross = base_gross * 3.0  # Was 4.0
         if total_aware > 60:
-            base_gross = base_gross * 1.5
+            base_gross = base_gross * 1.25 # Was 1.5
 
-    # 3. Standard Capacity Logic
+    # 3. Capacity Logic
     cap_per_theater = 5000 if theaters > 3000 else 3500
     capacity_gross = theaters * cap_per_theater
     
     weighted_gross = (base_gross * 0.7) + (capacity_gross * 0.3)
     
-    # 4. Quality Multipliers
+    # 4. Multipliers
     quality_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
-    
-    return weighted_gross * quality_mult * buzz * comp
+    raw_prediction = weighted_gross * quality_mult * buzz * comp
+
+    # 5. REALITY CAP (New Feature)
+    # If prediction > $150M, apply logarithmic dampening.
+    # This simulates the physical limit of theater seats.
+    if raw_prediction > 150_000_000:
+        excess = raw_prediction - 150_000_000
+        # The excess grows slower (square root)
+        dampened_excess = math.sqrt(excess) * 3500 
+        final_prediction = 150_000_000 + dampened_excess
+    else:
+        final_prediction = raw_prediction
+        
+    return final_prediction
 
 # --- PART 2: REAL DATA PRESETS ---
 presets = {
     "Eternity (A24)": {
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
         "wiki": "Eternity_(2025_film)", 
-        "yt_id": "wgnW9d59qAk", "yt_fallback": 4000000
+        "yt_id": "irXTps1REHU", "yt_fallback": 9300000
     },
     "Marty Supreme (A24)": {
         "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
@@ -93,8 +106,9 @@ presets = {
         "wiki": "Zootopia_2", 
         "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000
     },
+    # Adjusted Elden Ring to "Mario Movie" levels (High but not Impossible)
     "Elden Ring (Hypothetical)": {
-        "aware": 85, "interest": 90, "theaters": 4500, "buzz": 1.8, "comp": 0.7, 
+        "aware": 75, "interest": 65, "theaters": 4500, "buzz": 1.6, "comp": 0.8, 
         "wiki": "Elden_Ring", 
         "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000
     },
@@ -124,7 +138,6 @@ st.sidebar.divider()
 st.sidebar.subheader("Official Trailer Views")
 if st.sidebar.button("Fetch YouTube Views"):
     with st.spinner("Checking YouTube..."):
-        # THIS IS THE LINE THAT WAS CRASHING - NOW FIXED
         yt_views = get_youtube_views(data['yt_id'], data['yt_fallback'])
         st.sidebar.metric("Total Trailer Views", f"{yt_views:,}")
         st.sidebar.caption(f"Source: Official Trailer")
