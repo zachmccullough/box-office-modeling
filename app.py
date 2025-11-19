@@ -75,7 +75,6 @@ st.markdown("""
     .status-warning { background-color: #FEF9C3; color: #713F12; border: 1px solid #fef08a; }
     .status-neutral { background-color: #F3F4F6; color: #374151; border: 1px solid #E5E7EB; }
     
-    /* Tuning Advice Box */
     .tuning-box {
         background-color: #F8FAFC;
         border-left: 4px solid #3B82F6;
@@ -91,8 +90,8 @@ st.markdown("""
 
 # --- SHARED HELPER FUNCTIONS ---
 @st.cache_data(ttl=3600)
-def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
-    # 1. Wikipedia
+def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
+    # 1. Wikipedia (Always Fetch Live - Intent is generally stable post-release)
     wiki_views = 0
     try:
         headers = {'User-Agent': 'BoxOfficePredictor/1.0'}
@@ -105,17 +104,21 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug):
     except:
         wiki_views = 0
 
-    # 2. YouTube
-    yt_views = yt_fallback
-    try:
-        url = f"https://www.youtube.com/watch?v={yt_id}"
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
-        response = requests.get(url, headers=headers)
-        match = re.search(r'"viewCount":"(\d+)"', response.text)
-        if match:
-            yt_views = int(match.group(1))
-    except:
-        pass 
+    # 2. YouTube (Logic Fork)
+    # If we have a "frozen" number (for backtesting), use it. Don't fetch live.
+    if frozen_views:
+        yt_views = frozen_views
+    else:
+        yt_views = yt_fallback
+        try:
+            url = f"https://www.youtube.com/watch?v={yt_id}"
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)'}
+            response = requests.get(url, headers=headers)
+            match = re.search(r'"viewCount":"(\d+)"', response.text)
+            if match:
+                yt_views = int(match.group(1))
+        except:
+            pass 
 
     # 3. Rotten Tomatoes
     rt_score = None 
@@ -276,7 +279,7 @@ def render_short_term():
             "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
         },
 
-        # --- BLOCKBUSTERS ---
+        # --- UPCOMING BLOCKBUSTERS ---
         "Wicked: Part Two": {
             "type": "upcoming", "aware": 77, "interest": 50, "theaters": 4200, "buzz": 1.5, "comp": 0.8, 
             "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
@@ -296,7 +299,9 @@ def render_short_term():
         "Civil War (Historical)": {
             "type": "historical", "actual_opening": 25.7,
             "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
-            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000,
+            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", 
+            "yt_fallback": 22000000, # Current live count
+            "frozen_views": 16000000, # EST Views at release
             "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
             "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
             "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
@@ -304,7 +309,9 @@ def render_short_term():
         "A Minecraft Movie (Historical)": {
             "type": "historical", "actual_opening": 145.0,
             "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
-            "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
+            "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", 
+            "yt_fallback": 45000000, # Current
+            "frozen_views": 45000000, # Estimated at release
             "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
             "tracking_source": "Real Data", "competitors": "Micheal",
             "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
@@ -312,7 +319,9 @@ def render_short_term():
         "Superman (Historical)": {
             "type": "historical", "actual_opening": 115.0,
             "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
-            "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000,
+            "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", 
+            "yt_fallback": 30000000, 
+            "frozen_views": 30000000, 
             "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
             "tracking_source": "Estimated", "competitors": "Fantastic Four",
             "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
@@ -320,7 +329,9 @@ def render_short_term():
         "Barbie (Historical)": {
             "type": "historical", "actual_opening": 162.0,
             "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
-            "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", "yt_fallback": 80000000,
+            "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", 
+            "yt_fallback": 80000000, 
+            "frozen_views": 45000000, # Adjusted lower to reflect pre-release count
             "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
             "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
             "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
@@ -328,7 +339,9 @@ def render_short_term():
         "Five Nights at Freddy's (Historical)": {
             "type": "historical", "actual_opening": 80.0,
             "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
-            "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000,
+            "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", 
+            "yt_fallback": 50000000, 
+            "frozen_views": 25000000, # Adjusted lower
             "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
             "tracking_source": "Historical NRG", "competitors": "Eras Tour",
             "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
@@ -338,7 +351,14 @@ def render_short_term():
     selected_preset = st.selectbox("Select Project:", list(presets.keys()), index=0)
     data = presets[selected_preset]
     
-    live_wiki, live_yt, live_rt = get_live_data(data['wiki'], data['yt_id'], data['yt_fallback'], data['rt_slug'])
+    # Pass frozen_views if it exists
+    live_wiki, live_yt, live_rt = get_live_data(
+        data['wiki'], 
+        data['yt_id'], 
+        data['yt_fallback'], 
+        data['rt_slug'], 
+        data.get('frozen_views')
+    )
 
     # Sidebar Inputs
     st.sidebar.markdown("### 📡 Live Signals")
@@ -464,3 +484,4 @@ if view == "🔭 Long-Lead Planner":
     render_long_lead()
 else:
     render_short_term()
+    
