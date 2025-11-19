@@ -2,6 +2,8 @@ import streamlit as st
 import requests
 import re
 import math
+import pandas as pd
+import altair as alt
 from datetime import datetime, timedelta
 
 # --- PART 0: HIGH-END CONSUMER DESIGN (Light Mode) ---
@@ -277,7 +279,6 @@ st.sidebar.markdown("---")
 # 2. AWARENESS & INTEREST
 st.sidebar.markdown("#### 📊 Audience Tracking")
 
-# Dynamic Source Label placed RIGHT above the sliders
 if "Real" in data['tracking_source']:
     st.sidebar.caption(f"✅ Source: {data['tracking_source']}")
 else:
@@ -289,7 +290,6 @@ interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['intere
 st.sidebar.markdown("---")
 
 # 3. OTHER FACTORS
-# RT LABEL FIX (Explicitly mentions Rotten Tomatoes)
 if live_rt:
     rt_label = f"Rotten Tomatoes Score (Live)"
     rt_default = live_rt
@@ -327,10 +327,38 @@ with col1:
 
 with col2:
     st.markdown(f"#### 📊 Benchmark Comparison: {selected_preset.split('(')[0]}")
+    
+    # PREPARE ALTAIR DATA
     chart_data = data['benchmarks'].copy()
     chart_data["PREDICTION"] = prediction / 1_000_000
-    sorted_chart = dict(sorted(chart_data.items(), key=lambda item: item[1]))
-    st.bar_chart(sorted_chart)
+    
+    # Convert to DataFrame for Altair
+    df = pd.DataFrame({
+        "Movie": list(chart_data.keys()),
+        "Gross": list(chart_data.values())
+    })
+
+    # Create Horizontal Bar Chart
+    c = alt.Chart(df).mark_bar().encode(
+        x=alt.X('Gross', title='Opening Weekend ($M)'),
+        y=alt.Y('Movie', sort='-x', title=None),
+        color=alt.condition(
+            alt.datum.Movie == 'PREDICTION',
+            alt.value('#5E6AD2'),  # Indigo for Prediction
+            alt.value('#E2E2E5')   # Grey for Comps
+        ),
+        tooltip=['Movie', 'Gross']
+    ).properties(height=300)
+
+    text = c.mark_text(
+        align='left',
+        baseline='middle',
+        dx=3
+    ).encode(
+        text=alt.Text('Gross', format=',.1f')
+    )
+
+    st.altair_chart(c + text, use_container_width=True)
 
 # --- FOOTER ---
 with st.expander("🔎 View Methodology"):
