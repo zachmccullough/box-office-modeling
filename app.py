@@ -269,12 +269,12 @@ st.sidebar.markdown("---")
 # --- INPUTS SECTION ---
 st.sidebar.markdown("### 🎛️ Scenario Inputs")
 
-# 1. THEATER COUNT (FIXED: ADDED STEP)
+# 1. THEATER COUNT
 st.sidebar.caption("Distribution Strategy")
 theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'], step=100)
 st.sidebar.markdown("---")
 
-# 2. AWARENESS & INTEREST (FIXED: TIED TO SOURCE)
+# 2. AWARENESS & INTEREST
 st.sidebar.markdown("#### 📊 Audience Tracking")
 
 # Dynamic Source Label placed RIGHT above the sliders
@@ -289,16 +289,22 @@ interest = st.sidebar.slider("Definite Interest (%)", 0, 100, value=data['intere
 st.sidebar.markdown("---")
 
 # 3. OTHER FACTORS
-rt_label = f"Rotten Tomatoes Score (Live)" if live_rt else "Estimated Score (Unreleased)"
-rt_default = live_rt if live_rt else 70
-if not live_rt: st.sidebar.caption("⚠️ No live score. Defaulting to Neutral (70).")
+# RT LABEL FIX (Explicitly mentions Rotten Tomatoes)
+if live_rt:
+    rt_label = f"Rotten Tomatoes Score (Live)"
+    rt_default = live_rt
+    st.sidebar.success(f"✅ Live Score Found: {live_rt}%")
+else:
+    rt_label = "Estimated Rotten Tomatoes Score"
+    rt_default = 70
+    st.sidebar.caption("⚠️ No live score. Defaulting to Neutral (70).")
+
 rt_score = st.sidebar.slider(rt_label, 0, 100, value=rt_default)
 
 buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
 
-# 4. COMPETITION (FIXED: LIST UNDER SLIDER)
+# 4. COMPETITION
 comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
-# The list is now a caption underneath the slider
 st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
 
 # --- CALCULATIONS ---
