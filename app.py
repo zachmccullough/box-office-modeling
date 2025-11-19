@@ -172,7 +172,8 @@ presets = {
         "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)",
         "competitors": "Wicked: Part Two, Zootopia 2 (Thanksgiving Weekend)",
-        "benchmarks": {"Priscilla": 5.0, "The Iron Claw": 4.9, "Civil War (A24 Max)": 25.7}
+        # UPDATED BENCHMARKS: Swapped Civil War for Romance Comps
+        "benchmarks": {"Priscilla": 5.0, "Age of Adaline (Goal)": 13.2, "Me Before You (Breakout)": 18.7}
     },
     "Marty Supreme (A24)": {
         "aware": 30, "interest": 40, "theaters": 2200, "buzz": 1.3, "comp": 0.9, 
