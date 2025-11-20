@@ -133,27 +133,32 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
 
     return wiki_views, yt_views, rt_score
 
-# --- UPDATED CALCULATION ENGINE (Front-Loading Logic) ---
+# --- CORE CALCULATION ENGINE ---
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type):
+    # 1. BASE CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
+    # 2. STUDIO EFFICIENCY
     view_efficiency = 1.0
     if studio_type == "Cult / Indie (A24/Neon)": view_efficiency = 0.6 
     elif studio_type == "Major Franchise": view_efficiency = 1.0 
-        
+    
     effective_views = trailer_views * view_efficiency
     trailer_multiplier = 1.0
     if effective_views > 60_000_000: trailer_multiplier = 1.4
     elif effective_views > 15_000_000: trailer_multiplier = 1.2
     elif effective_views > 5_000_000: trailer_multiplier = 1.05 
+    
     base_gross = base_gross * trailer_multiplier
 
+    # 3. EFFICIENCY SCALING
     blockbuster_mult = 1.0
     if theaters > 2500:
         if total_aware > 60: blockbuster_mult = 3.0
         elif total_aware > 40: blockbuster_mult = 2.0
         elif total_aware > 25: blockbuster_mult = 1.5
         else: blockbuster_mult = 1.1
+    
     base_gross = base_gross * blockbuster_mult
 
     cap = 5000 if theaters > 3000 else 3500
@@ -166,31 +171,24 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     else:
         final_opening = raw_opening
 
-    # --- NEW: LEGS CALCULATION (With Front-Loading Penalty) ---
-    legs = 2.7 # Base
-    
-    # 1. Review Boost/Drag
+    # Legs Logic
+    legs = 2.7
     if rt_score > 80: legs += 0.5
     elif rt_score < 50: legs -= 0.6
-    
-    # 2. Platform Release Boost
     if theaters < 2000: legs += 0.4
     
-    # 3. The "Mega-Opening Penalty" (Front-loading)
-    # If a movie opens > $120M, it burns demand faster.
-    if final_opening > 120_000_000:
-        legs -= 0.5 # Penalize legs for massive openers
-    elif final_opening > 80_000_000:
-        legs -= 0.3
-        
+    # Front-loading Penalty
+    if final_opening > 120_000_000: legs -= 0.5
+    elif final_opening > 80_000_000: legs -= 0.3
+    
     dom_total = final_opening * legs
     global_total = dom_total * intl_multiplier
         
     return final_opening, dom_total, global_total
 
-# --- PART 2: PRESETS ---
-presets = {
-    # --- UPCOMING (Chronological) ---
+# --- DATASETS (GLOBAL SCOPE) ---
+
+upcoming_data = {
     "Wicked: Part Two (Nov 21)": {
         "type": "upcoming", "studio_type": "Major Franchise",
         "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
@@ -286,9 +284,10 @@ presets = {
         "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
         "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
         "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
-    },
-    
-    # --- HISTORICAL (Recency) ---
+    }
+}
+
+historical_data = {
     "Superman (Jul '25)": {
         "type": "historical", "studio_type": "Major Franchise", "actual_opening": 115.0,
         "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
@@ -333,10 +332,7 @@ presets = {
 
 # --- VIEW 1: LONG LEAD LOGIC ---
 def calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition_level):
-    genre_baselines = {
-        "Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0,
-        "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0
-    }
+    genre_baselines = {"Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0, "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0}
     base = genre_baselines.get(genre, 10.0)
     star_power_add = math.sqrt(cast_score) * 2.5
     production_add = budget * 0.08
@@ -396,13 +392,7 @@ def render_long_lead():
             <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
         </div>
         """, unsafe_allow_html=True)
-        
-        st.markdown(f"""<div class="tuning-box">
-        <b>🧠 Analysis:</b><br>
-        This model applies a heavy weight to the <b>{ip_status}</b> status and <b>{genre}</b> baseline.
-        The <b>${budget}M</b> budget adds a production value premium.
-        </div>""", unsafe_allow_html=True)
-
+    
     with col2:
         st.markdown("#### 🧱 Building the Forecast")
         breakdown_data = pd.DataFrame({
@@ -417,27 +407,7 @@ def render_long_lead():
         ).properties(height=300)
         st.altair_chart(c, use_container_width=True)
 
-    st.markdown("---")
-    st.markdown("#### 🎞️ Historical Comps (Automatic)")
-    comps_db = [
-        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
-        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
-        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
-        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
-        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
-        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
-        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
-        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
-    ]
-    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
-    if filtered_comps:
-        df_comps = pd.DataFrame(filtered_comps)
-        st.dataframe(df_comps, use_container_width=True)
-    else:
-        st.info("No direct comps found in database.")
-
-
-# --- VIEW 2: PREDICTIVE TRACKER (SHARED UI) ---
+# --- VIEW 2: PREDICTIVE TRACKER UI ---
 def render_tracker(dataset, mode_title):
     st.title(mode_title)
     st.markdown("---")
@@ -453,7 +423,7 @@ def render_tracker(dataset, mode_title):
         data.get('frozen_views')
     )
 
-    # Sidebar Inputs
+    # Sidebar
     st.sidebar.markdown("### 📡 Live Signals")
     badge_class = "status-success" if data['source_status'] == "success" else "status-neutral"
     st.sidebar.markdown(f'<span class="status-badge {badge_class}">{data["source_label"]}</span>', unsafe_allow_html=True)
@@ -495,7 +465,7 @@ def render_tracker(dataset, mode_title):
         interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'], studio_type
     )
 
-    # Dashboard Logic
+    # Dashboard
     if data.get('type') == 'historical':
         actual = data['actual_opening'] * 1_000_000
         delta = opening - actual
