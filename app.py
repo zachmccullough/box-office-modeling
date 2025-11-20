@@ -133,114 +133,9 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
 
     return wiki_views, yt_views, rt_score
 
-# --- VIEW 1: LONG LEAD LOGIC ---
-def render_long_lead():
-    st.title("🔭 Long-Lead Slate Planner")
-    st.caption("Fundamental analysis for greenlighting and slate planning (3-12 months out).")
-    st.markdown("---")
-
-    # Inputs
-    st.sidebar.header("Film DNA")
-    genre = st.sidebar.selectbox("Genre", ["Action/Adventure", "Horror", "Sci-Fi", "Drama", "Comedy", "Family/Animation", "Thriller"])
-    rating = st.sidebar.selectbox("MPA Rating", ["PG-13", "R", "PG", "G"])
-    ip_status = st.sidebar.selectbox("IP Status", ["Original", "Adaptation (Book/Game)", "Sequel (Major Franchise)"])
-    budget = st.sidebar.number_input("Production Budget ($M)", 5, 300, 50)
-
-    st.sidebar.markdown("---")
-    st.sidebar.header("Talent Metrics")
-    cast_score = st.sidebar.slider("Cast/Director Avg Opening ($M)", 0, 150, 20, help="Data from Comscore")
-
-    st.sidebar.markdown("---")
-    st.sidebar.header("Release Context")
-    season = st.sidebar.selectbox("Release Window", ["Average", "Summer (May-Jul)", "Holiday (Nov-Dec)", "Dump Months (Jan/Sept)"])
-    competition = st.sidebar.selectbox("Crowdedness", ["Low (Clear Weekend)", "Moderate (1 Opener)", "High (2+ Wide Releases)", "Extreme (vs Blockbuster)"])
-
-    # Calculation Logic
-    genre_baselines = {"Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0, "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0}
-    base = genre_baselines.get(genre, 10.0)
-    star_power_add = math.sqrt(cast_score) * 2.5
-    production_add = budget * 0.08
-    
-    ip_mult = 1.0
-    if ip_status == "Sequel (Major Franchise)": ip_mult = 2.5
-    elif ip_status == "Adaptation (Book/Game)": ip_mult = 1.5
-    elif ip_status == "Original": ip_mult = 0.9
-
-    season_mult = 1.0
-    if season == "Summer (May-Jul)": season_mult = 1.3
-    elif season == "Holiday (Nov-Dec)": season_mult = 1.4
-    elif season == "Dump Months (Jan/Sept)": season_mult = 0.8
-
-    rating_mult = 1.0
-    if rating == "R": rating_mult = 0.85
-    elif rating == "G/PG": rating_mult = 1.1
-
-    comp_mult = 1.0
-    if competition == "High (2+ Wide Releases)": comp_mult = 0.85
-    elif competition == "Extreme (vs Blockbuster)": comp_mult = 0.7
-
-    prediction = (base + star_power_add + production_add) * ip_mult * season_mult * rating_mult * comp_mult
-    low_end = prediction * 0.75
-    high_end = prediction * 1.25
-
-    # Output
-    col1, col2 = st.columns([1, 1.5])
-    with col1:
-        st.metric("Forecasted Opening", f"${prediction:.1f}M")
-        st.markdown(f"""
-        <div style="background-color: #F8FAFC; padding: 15px; border-radius: 8px; border: 1px solid #E2E2E5;">
-            <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 5px;">CONFIDENCE INTERVAL (±25%)</p>
-            <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown(f"""<div class="tuning-box">
-        <b>🧠 Analysis:</b><br>
-        This model applies a heavy weight to the <b>{ip_status}</b> status and <b>{genre}</b> baseline.
-        The <b>${budget}M</b> budget adds a production value premium.
-        </div>""", unsafe_allow_html=True)
-
-    with col2:
-        st.markdown("#### 🧱 Building the Forecast")
-        breakdown_data = pd.DataFrame({
-            "Factor": ["Genre Baseline", "Star Power Add", "Budget/Spectacle Add", "Final Prediction"],
-            "Value": [20, math.sqrt(cast_score) * 2.5, budget * 0.08, prediction],
-            "Type": ["Base", "Add-on", "Add-on", "Total"]
-        })
-        c = alt.Chart(breakdown_data).mark_bar().encode(
-            x=alt.X('Value', title='Contribution ($M)'),
-            y=alt.Y('Factor', sort=None),
-            color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
-        ).properties(height=300)
-        st.altair_chart(c, use_container_width=True)
-
-    # Comps
-    st.markdown("---")
-    st.markdown("#### 🎞️ Historical Comps (Automatic)")
-    comps_db = [
-        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
-        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
-        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
-        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
-        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
-        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
-        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
-        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
-    ]
-    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
-    if filtered_comps:
-        df_comps = pd.DataFrame(filtered_comps)
-        st.dataframe(df_comps, use_container_width=True)
-    else:
-        st.info("No direct comps found in database for this specific combo.")
-
-
-# --- VIEW 2: SHORT TERM TRACKER LOGIC ---
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type):
-    # 1. BASE CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # 2. STUDIO EFFICIENCY ADJUSTMENT
     view_efficiency = 1.0
     if studio_type == "Cult / Indie (A24/Neon)":
         view_efficiency = 0.6 
@@ -256,7 +151,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     
     base_gross = base_gross * trailer_multiplier
 
-    # 3. EFFICIENCY SCALING
     blockbuster_mult = 1.0
     if theaters > 2500:
         if total_aware > 60: blockbuster_mult = 3.0
@@ -284,160 +178,244 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final_opening, dom_total, global_total
 
-def render_short_term():
-    st.title("📉 Short-Term Tracker")
-    st.caption("High-precision model using Awareness, Interest, and Social Buzz (2-6 weeks out).")
+# --- DATASETS (Sorted by Release Date / Recency) ---
+
+# 1. UPCOMING (Chronological)
+upcoming_data = {
+    "Wicked: Part Two (Nov 21)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
+        "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
+        "rt_slug": "wicked_part_two", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2, Eternity",
+        "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
+    },
+    "Eternity (Nov 26)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", 
+        "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
+        "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
+        "rt_slug": "eternity_2025", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two, Zootopia 2",
+        "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
+    },
+    "Zootopia 2 (Nov 26)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
+        "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
+        "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two",
+        "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
+    },
+    "Five Nights at Freddy's 2 (Dec 5)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 85, "interest": 60, "theaters": 3800, "buzz": 1.6, "comp": 0.9, 
+        "wiki": "Five_Nights_at_Freddy's_2_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 45000000,
+        "rt_slug": "five_nights_at_freddys_2", "source_label": "Proxy (FNAF 1 Data)", "source_status": "warning",
+        "tracking_source": "Estimated (Fan Event)", "competitors": "Wicked Part 2 (Holdover)",
+        "intl_multiplier": 1.7, "benchmarks": {"FNAF 1": 80.0, "Halloween": 76.2, "M3GAN": 30.4}
+    },
+    "Avatar: Fire and Ash (Dec 19)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 95, "interest": 85, "theaters": 4500, "buzz": 1.8, "comp": 1.0, 
+        "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000, 
+        "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
+        "tracking_source": "Hypothetical", "competitors": "None",
+        "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
+    },
+    "SpongeBob Movie (Dec 19)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 90, "interest": 55, "theaters": 4000, "buzz": 1.3, "comp": 0.85, 
+        "wiki": "The_SpongeBob_Movie:_Search_for_SquarePants", "yt_id": "wFx7DRIKaig", "yt_fallback": 15000000,
+        "rt_slug": "the_spongebob_movie_search_for_squarepants", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Real Data (Quorum Proxy)", "competitors": "Avatar 3, Sonic 3",
+        "intl_multiplier": 2.3, "benchmarks": {"Sponge Out of Water": 55.3, "Kung Fu Panda 4": 57.9}
+    },
+    "Marty Supreme (Dec 25)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+        "aware": 30, "interest": 40, "theaters": 3200, "buzz": 1.3, "comp": 0.9, 
+        "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
+        "rt_slug": "marty_supreme", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Estimated (Uncut Gems Comps)", "competitors": "Avatar: Fire and Ash, SpongeBob",
+        "intl_multiplier": 1.8, "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
+    },
+    "The Housemaid (Early 2026)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 35, "interest": 40, "theaters": 3000, "buzz": 1.2, "comp": 0.85, 
+        "wiki": "The_Housemaid_(2025_film)", "yt_id": "7rZEsxySFPw", "yt_fallback": 8000000, 
+        "rt_slug": "the_housemaid_2025", "source_label": "Teaser / Proxy", "source_status": "warning",
+        "tracking_source": "Estimated (Thriller Comps)", "competitors": "Heavy Thriller Slate",
+        "intl_multiplier": 1.5, "benchmarks": {"A Simple Favor": 16.0, "Don't Worry Darling": 19.3}
+    },
+    "Pillion (2026)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+        "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
+        "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
+        "rt_slug": "pillion", "source_label": "Teaser / First Look", "source_status": "success",
+        "tracking_source": "Estimated (Arthouse Niche)", "competitors": "Limited Release Competition",
+        "intl_multiplier": 1.5, "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
+    },
+    "The Moment (2026)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+        "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
+        "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
+        "rt_slug": "the_moment_2026", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
+        "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
+    },
+    "Rental Family (2026)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+        "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.9, 
+        "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
+        "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Awards Season Traffic",
+        "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
+    },
+    "Elden Ring (TBD)": {
+        "type": "upcoming", "studio_type": "Major Franchise",
+        "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
+        "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
+        "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
+        "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
+        "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
+    }
+}
+
+# 2. HISTORICAL (Recency)
+historical_data = {
+    "Superman (Jul '25)": {
+        "type": "historical", "studio_type": "Major Franchise", "actual_opening": 115.0,
+        "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
+        "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", 
+        "frozen_views": 30000000, "yt_fallback": 30000000,
+        "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
+        "tracking_source": "Estimated", "competitors": "Fantastic Four",
+        "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
+    },
+    "A Minecraft Movie (Apr '25)": {
+        "type": "historical", "studio_type": "Major Franchise", "actual_opening": 145.0,
+        "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
+        "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", 
+        "frozen_views": 45000000, "yt_fallback": 45000000, 
+        "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
+        "tracking_source": "Real Data", "competitors": "Micheal",
+        "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
+    },
+    "Civil War (Apr '24)": {
+        "type": "historical", "studio_type": "Cult / Indie (A24/Neon)", "actual_opening": 25.7,
+        "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
+        "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", 
+        "frozen_views": 16000000, "yt_fallback": 22000000, 
+        "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
+        "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
+        "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
+    },
+    "Five Nights at Freddy's (Oct '23)": {
+        "type": "historical", "actual_opening": 80.0,
+        "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
+        "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", 
+        "frozen_views": 25000000, "yt_fallback": 50000000, 
+        "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
+        "tracking_source": "Historical NRG", "competitors": "Eras Tour",
+        "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
+    },
+    "Barbie (Jul '23)": {
+        "type": "historical", "studio_type": "Major Franchise", "actual_opening": 162.0,
+        "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
+        "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", 
+        "frozen_views": 45000000, "yt_fallback": 80000000, 
+        "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
+        "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
+        "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
+    }
+}
+
+# --- VIEW 1: LONG LEAD LOGIC ---
+def calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition_level):
+    genre_baselines = {
+        "Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0,
+        "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0
+    }
+    base = genre_baselines.get(genre, 10.0)
+    star_power_add = math.sqrt(cast_score) * 2.5
+    production_add = budget * 0.08
+    
+    ip_mult = 1.0
+    if ip_status == "Sequel (Major Franchise)": ip_mult = 2.5
+    elif ip_status == "Adaptation (Book/Game)": ip_mult = 1.5
+    elif ip_status == "Original": ip_mult = 0.9
+
+    season_mult = 1.0
+    if season == "Summer (May-Jul)": season_mult = 1.3
+    elif season == "Holiday (Nov-Dec)": season_mult = 1.4
+    elif season == "Dump Months (Jan/Sept)": season_mult = 0.8
+
+    rating_mult = 1.0
+    if rating == "R": rating_mult = 0.85
+    elif rating == "G/PG": rating_mult = 1.1
+
+    comp_mult = 1.0
+    if competition_level == "High (2+ Wide Releases)": comp_mult = 0.85
+    elif competition_level == "Extreme (vs Blockbuster)": comp_mult = 0.7
+
+    raw_prediction = (base + star_power_add + production_add) * ip_mult * season_mult * rating_mult * comp_mult
+    return raw_prediction
+
+def render_long_lead():
+    st.title("🔭 Long-Lead Slate Planner")
+    st.caption("Fundamental analysis for greenlighting and slate planning (3-12 months out).")
     st.markdown("---")
 
-    # Presets
-    presets = {
-        # --- NEW ADDITIONS ---
-        "Five Nights at Freddy's 2": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 85, "interest": 60, "theaters": 3800, "buzz": 1.6, "comp": 0.9, 
-            "wiki": "Five_Nights_at_Freddy's_2_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 45000000, # Proxy (FNAF 1)
-            "rt_slug": "five_nights_at_freddys_2", "source_label": "Proxy (FNAF 1 Data)", "source_status": "warning",
-            "tracking_source": "Estimated (Fan Event)", "competitors": "Wicked Part 2 (Holdover)",
-            "intl_multiplier": 1.7, "benchmarks": {"FNAF 1": 80.0, "Halloween": 76.2, "M3GAN": 30.4}
-        },
-        "The SpongeBob Movie: Search for SquarePants": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 90, "interest": 55, "theaters": 4000, "buzz": 1.3, "comp": 0.85, 
-            "wiki": "The_SpongeBob_Movie:_Search_for_SquarePants", "yt_id": "wFx7DRIKaig", "yt_fallback": 15000000,
-            "rt_slug": "the_spongebob_movie_search_for_squarepants", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Real Data (Quorum Proxy)", "competitors": "Avatar 3, Sonic 3",
-            "intl_multiplier": 2.3, "benchmarks": {"Sponge Out of Water": 55.3, "Kung Fu Panda 4": 57.9}
-        },
-        "Rental Family (Searchlight)": {
-            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-            "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.9, 
-            "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
-            "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Awards Season Traffic",
-            "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
-        },
-        "The Housemaid (Lionsgate)": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 35, "interest": 40, "theaters": 3000, "buzz": 1.2, "comp": 0.85, 
-            "wiki": "The_Housemaid_(2025_film)", "yt_id": "7rZEsxySFPw", "yt_fallback": 8000000, 
-            "rt_slug": "the_housemaid_2025", "source_label": "Teaser / Proxy", "source_status": "warning",
-            "tracking_source": "Estimated (Thriller Comps)", "competitors": "Heavy Thriller Slate",
-            "intl_multiplier": 1.5, "benchmarks": {"A Simple Favor": 16.0, "Don't Worry Darling": 19.3}
-        },
-        "Elden Ring (Hypothetical)": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
-            "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
-            "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
-            "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
-            "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
-        },
+    st.sidebar.header("Film DNA")
+    genre = st.sidebar.selectbox("Genre", ["Action/Adventure", "Horror", "Sci-Fi", "Drama", "Comedy", "Family/Animation", "Thriller"])
+    rating = st.sidebar.selectbox("MPA Rating", ["PG-13", "R", "PG", "G"])
+    ip_status = st.sidebar.selectbox("IP Status", ["Original", "Adaptation (Book/Game)", "Sequel (Major Franchise)"])
+    budget = st.sidebar.number_input("Production Budget ($M)", 5, 300, 50)
 
-        # --- A24 SLATE ---
-        "Eternity (A24)": {
-            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", 
-            "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
-            "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
-            "rt_slug": "eternity_2025", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two, Zootopia 2",
-            "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
-        },
-        "Marty Supreme (A24)": {
-            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-            "aware": 30, "interest": 40, "theaters": 3200, "buzz": 1.3, "comp": 0.9, 
-            "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
-            "rt_slug": "marty_supreme", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Estimated (Uncut Gems Comps)", "competitors": "Avatar: Fire and Ash, SpongeBob",
-            "intl_multiplier": 1.8, "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
-        },
-        "Pillion (A24/Element)": {
-            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-            "aware": 10, "interest": 20, "theaters": 800, "buzz": 1.0, "comp": 0.95, 
-            "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
-            "rt_slug": "pillion", "source_label": "Teaser / First Look", "source_status": "success",
-            "tracking_source": "Estimated (Arthouse Niche)", "competitors": "Limited Release Competition",
-            "intl_multiplier": 1.5, "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
-        },
-        "The Moment (A24)": {
-            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-            "aware": 15, "interest": 25, "theaters": 2000, "buzz": 1.1, "comp": 0.9, 
-            "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
-            "rt_slug": "the_moment_2026", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
-            "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
-        },
-        
-        # --- BLOCKBUSTERS ---
-        "Wicked: Part Two": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
-            "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
-            "rt_slug": "wicked_part_two", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2, Eternity",
-            "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
-        },
-        "Zootopia 2": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
-            "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
-            "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
-            "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two",
-            "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
-        },
-        "Avatar: Fire and Ash": {
-            "type": "upcoming", "studio_type": "Major Franchise",
-            "aware": 95, "interest": 85, "theaters": 4500, "buzz": 1.8, "comp": 1.0, 
-            "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000, 
-            "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
-            "tracking_source": "Hypothetical", "competitors": "None",
-            "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
-        },
+    st.sidebar.markdown("---")
+    st.sidebar.header("Talent Metrics")
+    cast_score = st.sidebar.slider("Cast/Director Avg Opening ($M)", 0, 150, 20, help="Data from Comscore")
 
-        # --- HISTORICALS ---
-        "Civil War (Historical)": {
-            "type": "historical", "studio_type": "Cult / Indie (A24/Neon)", "actual_opening": 25.7,
-            "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
-            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000, 
-            "frozen_views": 16000000, "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
-            "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
-            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
-        },
-        "A Minecraft Movie (Historical)": {
-            "type": "historical", "studio_type": "Major Franchise", "actual_opening": 145.0,
-            "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
-            "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, 
-            "frozen_views": 45000000, "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
-            "tracking_source": "Real Data", "competitors": "Micheal",
-            "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
-        },
-        "Superman (Historical)": {
-            "type": "historical", "studio_type": "Major Franchise", "actual_opening": 115.0,
-            "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
-            "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000, 
-            "frozen_views": 30000000, "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
-            "tracking_source": "Estimated", "competitors": "Fantastic Four",
-            "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
-        },
-        "Barbie (Historical)": {
-            "type": "historical", "studio_type": "Major Franchise", "actual_opening": 162.0,
-            "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
-            "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", "yt_fallback": 80000000, 
-            "frozen_views": 45000000, "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
-            "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
-            "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
-        },
-        "Five Nights at Freddy's (Historical)": {
-            "type": "historical", "actual_opening": 80.0,
-            "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
-            "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000, 
-            "frozen_views": 25000000, "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
-            "tracking_source": "Historical NRG", "competitors": "Eras Tour",
-            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
-        }
-    }
+    st.sidebar.markdown("---")
+    st.sidebar.header("Release Context")
+    season = st.sidebar.selectbox("Release Window", ["Average", "Summer (May-Jul)", "Holiday (Nov-Dec)", "Dump Months (Jan/Sept)"])
+    competition = st.sidebar.selectbox("Crowdedness", ["Low (Clear Weekend)", "Moderate (1 Opener)", "High (2+ Wide Releases)", "Extreme (vs Blockbuster)"])
 
-    selected_preset = st.selectbox("Select Project:", list(presets.keys()), index=0)
-    data = presets[selected_preset]
+    # Calculate
+    prediction = calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition)
+    low_end = prediction * 0.75
+    high_end = prediction * 1.25
+
+    col1, col2 = st.columns([1, 1.5])
+    with col1:
+        st.metric("Forecasted Opening", f"${prediction:.1f}M")
+        st.markdown(f"""
+        <div style="background-color: #F8FAFC; padding: 15px; border-radius: 8px; border: 1px solid #E2E2E5;">
+            <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 5px;">CONFIDENCE INTERVAL (±25%)</p>
+            <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("#### 🧱 Building the Forecast")
+        breakdown_data = pd.DataFrame({
+            "Factor": ["Genre Baseline", "Star Power Add", "Budget/Spectacle Add", "Final Prediction"],
+            "Value": [20, math.sqrt(cast_score) * 2.5, budget * 0.08, prediction],
+            "Type": ["Base", "Add-on", "Add-on", "Total"]
+        })
+        c = alt.Chart(breakdown_data).mark_bar().encode(
+            x=alt.X('Value', title='Contribution ($M)'),
+            y=alt.Y('Factor', sort=None),
+            color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
+        ).properties(height=300)
+        st.altair_chart(c, use_container_width=True)
+
+# --- VIEW 2: PREDICTIVE TRACKER (SHARED UI) ---
+def render_tracker(dataset, mode_title):
+    st.title(mode_title)
+    st.markdown("---")
+
+    selected_preset = st.selectbox("Select Project:", list(dataset.keys()), index=0)
+    data = dataset[selected_preset]
     
     live_wiki, live_yt, live_rt = get_live_data(
         data['wiki'], 
@@ -455,14 +433,10 @@ def render_short_term():
     st.sidebar.metric("Wiki Views", f"{live_wiki:,}", help="30-Day Avg")
     st.sidebar.metric("Trailer Views", f"{live_yt/1000000:.1f}M")
     
-    # Studio Type
     st.sidebar.markdown("---")
     st.sidebar.caption("Model Tuning")
     studio_type = st.sidebar.selectbox("Studio / Brand Profile", ["Major Franchise", "Cult / Indie (A24/Neon)"], index=0 if data.get("studio_type") == "Major Franchise" else 1)
     
-    if studio_type == "Cult / Indie (A24/Neon)":
-        st.sidebar.info("ℹ️ **Cult Brand:** Trailer views dampened (0.6x) for high fan engagement vs. general conversion.")
-
     st.sidebar.markdown("### 🎛️ Model Inputs")
     
     theaters = st.sidebar.number_input("Theater Count", 100, 5000, value=data['theaters'], step=100)
@@ -493,7 +467,7 @@ def render_short_term():
         interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'], studio_type
     )
 
-    # Display Dashboard
+    # Dashboard Logic
     if data.get('type') == 'historical':
         actual = data['actual_opening'] * 1_000_000
         delta = opening - actual
@@ -542,10 +516,12 @@ def render_short_term():
         text = base.mark_text(align='left', dx=3).encode(text=alt.Text('Gross', format=',.1f'))
         st.altair_chart((bars + text).properties(height=300).configure_view(strokeWidth=0), use_container_width=True)
 
-# --- MAIN NAVIGATION ---
-view = st.sidebar.radio("Evaluation Mode", ["🔭 Long-Lead Planner", "📉 Short-Term Tracker"])
+# --- MAIN NAVIGATION CONTROLLER ---
+view = st.sidebar.radio("Evaluation Mode", ["🔭 Long-Lead Planner", "📉 Short-Term Tracker", "🕰️ Historical Analysis"])
 
 if view == "🔭 Long-Lead Planner":
     render_long_lead()
+elif view == "📉 Short-Term Tracker":
+    render_tracker(upcoming_data, "📉 Short-Term Tracker")
 else:
-    render_short_term()
+    render_tracker(historical_data, "🕰️ Historical Analysis")
