@@ -133,6 +133,109 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
 
     return wiki_views, yt_views, rt_score
 
+# --- VIEW 1: LONG LEAD LOGIC ---
+def render_long_lead():
+    st.title("🔭 Long-Lead Slate Planner")
+    st.caption("Fundamental analysis for greenlighting and slate planning (3-12 months out).")
+    st.markdown("---")
+
+    # Inputs
+    st.sidebar.header("Film DNA")
+    genre = st.sidebar.selectbox("Genre", ["Action/Adventure", "Horror", "Sci-Fi", "Drama", "Comedy", "Family/Animation", "Thriller"])
+    rating = st.sidebar.selectbox("MPA Rating", ["PG-13", "R", "PG", "G"])
+    ip_status = st.sidebar.selectbox("IP Status", ["Original", "Adaptation (Book/Game)", "Sequel (Major Franchise)"])
+    budget = st.sidebar.number_input("Production Budget ($M)", 5, 300, 50)
+
+    st.sidebar.markdown("---")
+    st.sidebar.header("Talent Metrics")
+    cast_score = st.sidebar.slider("Cast/Director Avg Opening ($M)", 0, 150, 20, help="Data from Comscore")
+
+    st.sidebar.markdown("---")
+    st.sidebar.header("Release Context")
+    season = st.sidebar.selectbox("Release Window", ["Average", "Summer (May-Jul)", "Holiday (Nov-Dec)", "Dump Months (Jan/Sept)"])
+    competition = st.sidebar.selectbox("Crowdedness", ["Low (Clear Weekend)", "Moderate (1 Opener)", "High (2+ Wide Releases)", "Extreme (vs Blockbuster)"])
+
+    # Calculation Logic
+    genre_baselines = {"Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0, "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0}
+    base = genre_baselines.get(genre, 10.0)
+    star_power_add = math.sqrt(cast_score) * 2.5
+    production_add = budget * 0.08
+    
+    ip_mult = 1.0
+    if ip_status == "Sequel (Major Franchise)": ip_mult = 2.5
+    elif ip_status == "Adaptation (Book/Game)": ip_mult = 1.5
+    elif ip_status == "Original": ip_mult = 0.9
+
+    season_mult = 1.0
+    if season == "Summer (May-Jul)": season_mult = 1.3
+    elif season == "Holiday (Nov-Dec)": season_mult = 1.4
+    elif season == "Dump Months (Jan/Sept)": season_mult = 0.8
+
+    rating_mult = 1.0
+    if rating == "R": rating_mult = 0.85
+    elif rating == "G/PG": rating_mult = 1.1
+
+    comp_mult = 1.0
+    if competition == "High (2+ Wide Releases)": comp_mult = 0.85
+    elif competition == "Extreme (vs Blockbuster)": comp_mult = 0.7
+
+    prediction = (base + star_power_add + production_add) * ip_mult * season_mult * rating_mult * comp_mult
+    low_end = prediction * 0.75
+    high_end = prediction * 1.25
+
+    # Output
+    col1, col2 = st.columns([1, 1.5])
+    with col1:
+        st.metric("Forecasted Opening", f"${prediction:.1f}M")
+        st.markdown(f"""
+        <div style="background-color: #F8FAFC; padding: 15px; border-radius: 8px; border: 1px solid #E2E2E5;">
+            <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 5px;">CONFIDENCE INTERVAL (±25%)</p>
+            <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown(f"""<div class="tuning-box">
+        <b>🧠 Analysis:</b><br>
+        This model applies a heavy weight to the <b>{ip_status}</b> status and <b>{genre}</b> baseline.
+        The <b>${budget}M</b> budget adds a production value premium.
+        </div>""", unsafe_allow_html=True)
+
+    with col2:
+        st.markdown("#### 🧱 Building the Forecast")
+        breakdown_data = pd.DataFrame({
+            "Factor": ["Genre Baseline", "Star Power Add", "Budget/Spectacle Add", "Final Prediction"],
+            "Value": [20, math.sqrt(cast_score) * 2.5, budget * 0.08, prediction],
+            "Type": ["Base", "Add-on", "Add-on", "Total"]
+        })
+        c = alt.Chart(breakdown_data).mark_bar().encode(
+            x=alt.X('Value', title='Contribution ($M)'),
+            y=alt.Y('Factor', sort=None),
+            color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
+        ).properties(height=300)
+        st.altair_chart(c, use_container_width=True)
+
+    # Comps
+    st.markdown("---")
+    st.markdown("#### 🎞️ Historical Comps (Automatic)")
+    comps_db = [
+        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
+        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
+        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
+        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
+        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
+        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
+        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
+        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
+    ]
+    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
+    if filtered_comps:
+        df_comps = pd.DataFrame(filtered_comps)
+        st.dataframe(df_comps, use_container_width=True)
+    else:
+        st.info("No direct comps found in database for this specific combo.")
+
+
+# --- VIEW 2: SHORT TERM TRACKER LOGIC ---
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type):
     # 1. BASE CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
@@ -181,116 +284,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final_opening, dom_total, global_total
 
-# --- PART 1B: LONG LEAD CALCULATION ENGINE ---
-def calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition_level):
-    genre_baselines = {
-        "Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0,
-        "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0
-    }
-    base = genre_baselines.get(genre, 10.0)
-    star_power_add = math.sqrt(cast_score) * 2.5
-    production_add = budget * 0.08
-    
-    ip_mult = 1.0
-    if ip_status == "Sequel (Major Franchise)": ip_mult = 2.5
-    elif ip_status == "Adaptation (Book/Game)": ip_mult = 1.5
-    elif ip_status == "Original": ip_mult = 0.9
-
-    season_mult = 1.0
-    if season == "Summer (May-Jul)": season_mult = 1.3
-    elif season == "Holiday (Nov-Dec)": season_mult = 1.4
-    elif season == "Dump Months (Jan/Sept)": season_mult = 0.8
-
-    rating_mult = 1.0
-    if rating == "R": rating_mult = 0.85
-    elif rating == "G/PG": rating_mult = 1.1
-
-    comp_mult = 1.0
-    if competition_level == "High (2+ Wide Releases)": comp_mult = 0.85
-    elif competition_level == "Extreme (vs Blockbuster)": comp_mult = 0.7
-
-    raw_prediction = (base + star_power_add + production_add) * ip_mult * season_mult * rating_mult * comp_mult
-    return raw_prediction
-
-# --- VIEW 1: LONG LEAD PLANNER UI ---
-def render_long_lead():
-    st.title("🔭 Long-Lead Slate Planner")
-    st.caption("Fundamental analysis for greenlighting and slate planning (3-12 months out).")
-    st.markdown("---")
-
-    st.sidebar.header("Film DNA")
-    genre = st.sidebar.selectbox("Genre", ["Action/Adventure", "Horror", "Sci-Fi", "Drama", "Comedy", "Family/Animation", "Thriller"])
-    rating = st.sidebar.selectbox("MPA Rating", ["PG-13", "R", "PG", "G"])
-    ip_status = st.sidebar.selectbox("IP Status", ["Original", "Adaptation (Book/Game)", "Sequel (Major Franchise)"])
-    budget = st.sidebar.number_input("Production Budget ($M)", 5, 300, 50)
-
-    st.sidebar.markdown("---")
-    st.sidebar.header("Talent Metrics")
-    cast_score = st.sidebar.slider("Cast/Director Avg Opening ($M)", 0, 150, 20, help="Data from Comscore")
-
-    st.sidebar.markdown("---")
-    st.sidebar.header("Release Context")
-    season = st.sidebar.selectbox("Release Window", ["Average", "Summer (May-Jul)", "Holiday (Nov-Dec)", "Dump Months (Jan/Sept)"])
-    competition = st.sidebar.selectbox("Crowdedness", ["Low (Clear Weekend)", "Moderate (1 Opener)", "High (2+ Wide Releases)", "Extreme (vs Blockbuster)"])
-
-    # Calculate
-    prediction = calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition)
-    low_end = prediction * 0.75
-    high_end = prediction * 1.25
-
-    col1, col2 = st.columns([1, 1.5])
-    with col1:
-        st.metric("Forecasted Opening", f"${prediction:.1f}M")
-        st.markdown(f"""
-        <div style="background-color: #F8FAFC; padding: 15px; border-radius: 8px; border: 1px solid #E2E2E5;">
-            <p style="color: #64748B; font-size: 0.85rem; margin-bottom: 5px;">CONFIDENCE INTERVAL (±25%)</p>
-            <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.markdown(f"""<div class="tuning-box">
-        <b>🧠 Analysis:</b><br>
-        This model applies a heavy weight to the <b>{ip_status}</b> status and <b>{genre}</b> baseline.
-        The <b>${budget}M</b> budget adds a production value premium.
-        </div>""", unsafe_allow_html=True)
-
-    with col2:
-        st.markdown("#### 🧱 Building the Forecast")
-        breakdown_data = pd.DataFrame({
-            "Factor": ["Genre Baseline", "Star Power Add", "Budget/Spectacle Add", "Final Prediction"],
-            "Value": [20, math.sqrt(cast_score) * 2.5, budget * 0.08, prediction],
-            "Type": ["Base", "Add-on", "Add-on", "Total"]
-        })
-        
-        # Simple Bar Chart for breakdown
-        c = alt.Chart(breakdown_data).mark_bar().encode(
-            x=alt.X('Value', title='Contribution ($M)'),
-            y=alt.Y('Factor', sort=None),
-            color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
-        ).properties(height=300)
-        st.altair_chart(c, use_container_width=True)
-
-    st.markdown("---")
-    st.markdown("#### 🎞️ Historical Comps (Automatic)")
-    comps_db = [
-        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
-        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
-        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
-        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
-        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
-        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
-        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
-        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
-    ]
-    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
-    if filtered_comps:
-        df_comps = pd.DataFrame(filtered_comps)
-        st.dataframe(df_comps, use_container_width=True)
-    else:
-        st.info("No direct comps found in database.")
-
-
-# --- VIEW 2: SHORT TERM TRACKER UI ---
 def render_short_term():
     st.title("📉 Short-Term Tracker")
     st.caption("High-precision model using Awareness, Interest, and Social Buzz (2-6 weeks out).")
@@ -298,6 +291,49 @@ def render_short_term():
 
     # Presets
     presets = {
+        # --- NEW ADDITIONS ---
+        "Five Nights at Freddy's 2": {
+            "type": "upcoming", "studio_type": "Major Franchise",
+            "aware": 85, "interest": 60, "theaters": 3800, "buzz": 1.6, "comp": 0.9, 
+            "wiki": "Five_Nights_at_Freddy's_2_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 45000000, # Proxy (FNAF 1)
+            "rt_slug": "five_nights_at_freddys_2", "source_label": "Proxy (FNAF 1 Data)", "source_status": "warning",
+            "tracking_source": "Estimated (Fan Event)", "competitors": "Wicked Part 2 (Holdover)",
+            "intl_multiplier": 1.7, "benchmarks": {"FNAF 1": 80.0, "Halloween": 76.2, "M3GAN": 30.4}
+        },
+        "The SpongeBob Movie: Search for SquarePants": {
+            "type": "upcoming", "studio_type": "Major Franchise",
+            "aware": 90, "interest": 55, "theaters": 4000, "buzz": 1.3, "comp": 0.85, 
+            "wiki": "The_SpongeBob_Movie:_Search_for_SquarePants", "yt_id": "wFx7DRIKaig", "yt_fallback": 15000000,
+            "rt_slug": "the_spongebob_movie_search_for_squarepants", "source_label": "Official Trailer", "source_status": "success",
+            "tracking_source": "Real Data (Quorum Proxy)", "competitors": "Avatar 3, Sonic 3",
+            "intl_multiplier": 2.3, "benchmarks": {"Sponge Out of Water": 55.3, "Kung Fu Panda 4": 57.9}
+        },
+        "Rental Family (Searchlight)": {
+            "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+            "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.9, 
+            "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
+            "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
+            "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Awards Season Traffic",
+            "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
+        },
+        "The Housemaid (Lionsgate)": {
+            "type": "upcoming", "studio_type": "Major Franchise",
+            "aware": 35, "interest": 40, "theaters": 3000, "buzz": 1.2, "comp": 0.85, 
+            "wiki": "The_Housemaid_(2025_film)", "yt_id": "7rZEsxySFPw", "yt_fallback": 8000000, 
+            "rt_slug": "the_housemaid_2025", "source_label": "Teaser / Proxy", "source_status": "warning",
+            "tracking_source": "Estimated (Thriller Comps)", "competitors": "Heavy Thriller Slate",
+            "intl_multiplier": 1.5, "benchmarks": {"A Simple Favor": 16.0, "Don't Worry Darling": 19.3}
+        },
+        "Elden Ring (Hypothetical)": {
+            "type": "upcoming", "studio_type": "Major Franchise",
+            "aware": 60, "interest": 45, "theaters": 4000, "buzz": 1.4, "comp": 0.8, 
+            "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
+            "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
+            "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
+            "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
+        },
+
+        # --- A24 SLATE ---
         "Eternity (A24)": {
             "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", 
             "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -330,6 +366,8 @@ def render_short_term():
             "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
             "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
         },
+        
+        # --- BLOCKBUSTERS ---
         "Wicked: Part Two": {
             "type": "upcoming", "studio_type": "Major Franchise",
             "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
@@ -338,6 +376,14 @@ def render_short_term():
             "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2, Eternity",
             "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
         },
+        "Zootopia 2": {
+            "type": "upcoming", "studio_type": "Major Franchise",
+            "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
+            "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
+            "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
+            "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two",
+            "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
+        },
         "Avatar: Fire and Ash": {
             "type": "upcoming", "studio_type": "Major Franchise",
             "aware": 95, "interest": 85, "theaters": 4500, "buzz": 1.8, "comp": 1.0, 
@@ -345,6 +391,16 @@ def render_short_term():
             "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
             "tracking_source": "Hypothetical", "competitors": "None",
             "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
+        },
+
+        # --- HISTORICALS ---
+        "Civil War (Historical)": {
+            "type": "historical", "studio_type": "Cult / Indie (A24/Neon)", "actual_opening": 25.7,
+            "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
+            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000, 
+            "frozen_views": 16000000, "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
+            "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
+            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
         },
         "A Minecraft Movie (Historical)": {
             "type": "historical", "studio_type": "Major Franchise", "actual_opening": 145.0,
@@ -362,14 +418,6 @@ def render_short_term():
             "tracking_source": "Estimated", "competitors": "Fantastic Four",
             "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
         },
-        "Civil War (Historical)": {
-            "type": "historical", "studio_type": "Cult / Indie (A24/Neon)", "actual_opening": 25.7,
-            "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
-            "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000, 
-            "frozen_views": 16000000, "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
-            "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
-            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
-        },
         "Barbie (Historical)": {
             "type": "historical", "studio_type": "Major Franchise", "actual_opening": 162.0,
             "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
@@ -377,6 +425,14 @@ def render_short_term():
             "frozen_views": 45000000, "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
             "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
             "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
+        },
+        "Five Nights at Freddy's (Historical)": {
+            "type": "historical", "actual_opening": 80.0,
+            "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
+            "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000, 
+            "frozen_views": 25000000, "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
+            "tracking_source": "Historical NRG", "competitors": "Eras Tour",
+            "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
         }
     }
 
