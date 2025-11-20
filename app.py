@@ -133,22 +133,19 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
 
     return wiki_views, yt_views, rt_score
 
+# --- UPDATED CALCULATION ENGINE (Front-Loading Logic) ---
 def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type):
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
     view_efficiency = 1.0
-    if studio_type == "Cult / Indie (A24/Neon)":
-        view_efficiency = 0.6 
-    elif studio_type == "Major Franchise":
-        view_efficiency = 1.0 
+    if studio_type == "Cult / Indie (A24/Neon)": view_efficiency = 0.6 
+    elif studio_type == "Major Franchise": view_efficiency = 1.0 
         
     effective_views = trailer_views * view_efficiency
-    
     trailer_multiplier = 1.0
     if effective_views > 60_000_000: trailer_multiplier = 1.4
     elif effective_views > 15_000_000: trailer_multiplier = 1.2
     elif effective_views > 5_000_000: trailer_multiplier = 1.05 
-    
     base_gross = base_gross * trailer_multiplier
 
     blockbuster_mult = 1.0
@@ -157,7 +154,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         elif total_aware > 40: blockbuster_mult = 2.0
         elif total_aware > 25: blockbuster_mult = 1.5
         else: blockbuster_mult = 1.1
-    
     base_gross = base_gross * blockbuster_mult
 
     cap = 5000 if theaters > 3000 else 3500
@@ -170,18 +166,31 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     else:
         final_opening = raw_opening
 
-    legs = 2.7
+    # --- NEW: LEGS CALCULATION (With Front-Loading Penalty) ---
+    legs = 2.7 # Base
+    
+    # 1. Review Boost/Drag
     if rt_score > 80: legs += 0.5
     elif rt_score < 50: legs -= 0.6
+    
+    # 2. Platform Release Boost
+    if theaters < 2000: legs += 0.4
+    
+    # 3. The "Mega-Opening Penalty" (Front-loading)
+    # If a movie opens > $120M, it burns demand faster.
+    if final_opening > 120_000_000:
+        legs -= 0.5 # Penalize legs for massive openers
+    elif final_opening > 80_000_000:
+        legs -= 0.3
+        
     dom_total = final_opening * legs
     global_total = dom_total * intl_multiplier
         
     return final_opening, dom_total, global_total
 
-# --- DATASETS ---
-
-# 1. UPCOMING (Chronological)
-upcoming_data = {
+# --- PART 2: PRESETS ---
+presets = {
+    # --- UPCOMING (Chronological) ---
     "Wicked: Part Two (Nov 21)": {
         "type": "upcoming", "studio_type": "Major Franchise",
         "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
@@ -192,7 +201,7 @@ upcoming_data = {
     },
     "Rental Family (Nov 21)": {
         "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-        "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.7, # Heavy competition from Wicked
+        "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.7, 
         "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
         "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Wicked: Part Two (Direct)",
@@ -277,16 +286,13 @@ upcoming_data = {
         "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
         "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
         "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
-    }
-}
-
-# 2. HISTORICAL (Recency)
-historical_data = {
+    },
+    
+    # --- HISTORICAL (Recency) ---
     "Superman (Jul '25)": {
         "type": "historical", "studio_type": "Major Franchise", "actual_opening": 115.0,
         "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
-        "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", 
-        "frozen_views": 30000000, "yt_fallback": 30000000,
+        "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000, "frozen_views": 30000000,
         "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
         "tracking_source": "Estimated", "competitors": "Fantastic Four",
         "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
@@ -294,8 +300,7 @@ historical_data = {
     "A Minecraft Movie (Apr '25)": {
         "type": "historical", "studio_type": "Major Franchise", "actual_opening": 145.0,
         "aware": 90, "interest": 55, "theaters": 4300, "buzz": 1.6, "comp": 0.85, 
-        "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", 
-        "frozen_views": 45000000, "yt_fallback": 45000000, 
+        "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, "frozen_views": 45000000,
         "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
         "tracking_source": "Real Data", "competitors": "Micheal",
         "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
@@ -303,8 +308,7 @@ historical_data = {
     "Civil War (Apr '24)": {
         "type": "historical", "studio_type": "Cult / Indie (A24/Neon)", "actual_opening": 25.7,
         "aware": 48, "interest": 42, "theaters": 3838, "buzz": 1.3, "comp": 0.9, 
-        "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", 
-        "frozen_views": 16000000, "yt_fallback": 22000000, 
+        "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000, "frozen_views": 16000000,
         "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
         "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
@@ -312,8 +316,7 @@ historical_data = {
     "Five Nights at Freddy's (Oct '23)": {
         "type": "historical", "actual_opening": 80.0,
         "aware": 60, "interest": 55, "theaters": 3675, "buzz": 1.6, "comp": 0.9, 
-        "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", 
-        "frozen_views": 25000000, "yt_fallback": 50000000, 
+        "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000, "frozen_views": 25000000,
         "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Eras Tour",
         "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
@@ -321,8 +324,7 @@ historical_data = {
     "Barbie (Jul '23)": {
         "type": "historical", "studio_type": "Major Franchise", "actual_opening": 162.0,
         "aware": 95, "interest": 75, "theaters": 4243, "buzz": 1.8, "comp": 0.8, 
-        "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", 
-        "frozen_views": 45000000, "yt_fallback": 80000000, 
+        "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", "yt_fallback": 80000000, "frozen_views": 45000000,
         "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
         "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
