@@ -178,7 +178,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
         
     return final_opening, dom_total, global_total
 
-# --- DATASETS (Sorted by Release Date / Recency) ---
+# --- DATASETS ---
 
 # 1. UPCOMING (Chronological)
 upcoming_data = {
@@ -187,15 +187,23 @@ upcoming_data = {
         "aware": 92, "interest": 62, "theaters": 4200, "buzz": 1.6, "comp": 0.8, 
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
         "rt_slug": "wicked_part_two", "source_label": "Official Trailer", "source_status": "success",
-        "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2, Eternity",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Rental Family, Gladiator II",
         "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
+    },
+    "Rental Family (Nov 21)": {
+        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
+        "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.7, # Heavy competition from Wicked
+        "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
+        "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
+        "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Wicked: Part Two (Direct)",
+        "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
     },
     "Eternity (Nov 26)": {
         "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", 
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
         "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
         "rt_slug": "eternity_2025", "source_label": "Official Trailer", "source_status": "success",
-        "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two, Zootopia 2",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2 (Direct)",
         "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
     },
     "Zootopia 2 (Nov 26)": {
@@ -203,7 +211,7 @@ upcoming_data = {
         "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
         "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
-        "tracking_source": "Real Data (The Quorum)", "competitors": "Wicked: Part Two",
+        "tracking_source": "Real Data (The Quorum)", "competitors": "Eternity",
         "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Five Nights at Freddy's 2 (Dec 5)": {
@@ -219,7 +227,7 @@ upcoming_data = {
         "aware": 95, "interest": 85, "theaters": 4500, "buzz": 1.8, "comp": 1.0, 
         "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000, 
         "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
-        "tracking_source": "Hypothetical", "competitors": "None",
+        "tracking_source": "Hypothetical", "competitors": "SpongeBob Movie",
         "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
     },
     "SpongeBob Movie (Dec 19)": {
@@ -261,14 +269,6 @@ upcoming_data = {
         "rt_slug": "the_moment_2026", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
         "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
-    },
-    "Rental Family (2026)": {
-        "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)",
-        "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.9, 
-        "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
-        "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
-        "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Awards Season Traffic",
-        "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
     },
     "Elden Ring (TBD)": {
         "type": "upcoming", "studio_type": "Major Franchise",
@@ -394,6 +394,12 @@ def render_long_lead():
             <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
         </div>
         """, unsafe_allow_html=True)
+        
+        st.markdown(f"""<div class="tuning-box">
+        <b>🧠 Analysis:</b><br>
+        This model applies a heavy weight to the <b>{ip_status}</b> status and <b>{genre}</b> baseline.
+        The <b>${budget}M</b> budget adds a production value premium.
+        </div>""", unsafe_allow_html=True)
 
     with col2:
         st.markdown("#### 🧱 Building the Forecast")
@@ -408,6 +414,26 @@ def render_long_lead():
             color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
         ).properties(height=300)
         st.altair_chart(c, use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("#### 🎞️ Historical Comps (Automatic)")
+    comps_db = [
+        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
+        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
+        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
+        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
+        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
+        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
+        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
+        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
+    ]
+    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
+    if filtered_comps:
+        df_comps = pd.DataFrame(filtered_comps)
+        st.dataframe(df_comps, use_container_width=True)
+    else:
+        st.info("No direct comps found in database.")
+
 
 # --- VIEW 2: PREDICTIVE TRACKER (SHARED UI) ---
 def render_tracker(dataset, mode_title):
