@@ -1,6 +1,6 @@
 import streamlit as st
 import requests
-import re
+import json
 import math
 import pandas as pd
 import altair as alt
@@ -134,28 +134,49 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None, po
         except:
             pass
 
-    # 4. Polymarket (New)
+    # 4. Polymarket (Fixed Parsing Logic)
     poly_data = None
+    top_outcome = None
+    top_prob = 0
+    
     if poly_slug:
         try:
-            # Using Gamma API to fetch event details
-            # We just fetch the market to show it exists, deeper parsing of outcomes 
-            # requires more complex logic (binary outcomes vs scalar)
             url = f"https://gamma-api.polymarket.com/events?slug={poly_slug}"
             response = requests.get(url)
             if response.status_code == 200 and len(response.json()) > 0:
-                poly_data = response.json()[0] # Just return the raw event object if found
+                event = response.json()[0]
+                poly_data = {
+                    "title": event.get('title'),
+                    "url": f"https://polymarket.com/event/{poly_slug}"
+                }
+                
+                # Find the market outcome with highest probability
+                markets = event.get('markets', [])
+                for m in markets:
+                    # outcomePrices is usually ["0.02", "0.98"]. We assume index 0 is 'Yes' price for the group item
+                    try:
+                        prices = json.loads(m.get('outcomePrices', '["0", "0"]'))
+                        current_prob = float(prices[0]) # Using first price (often Yes/Buy)
+                        if current_prob > top_prob:
+                            top_prob = current_prob
+                            top_outcome = m.get('groupItemTitle', m.get('question'))
+                    except:
+                        continue
+                
+                if top_outcome:
+                    poly_data["top_outcome"] = top_outcome
+                    poly_data["prob"] = int(top_prob * 100)
         except:
             pass
 
     return wiki_views, yt_views, rt_score, poly_data
 
-# --- CALCULATION ENGINE ---
+# --- CORE CALCULATION ENGINE ---
 def calculate_box_office(interest, total_aware, theaters, rt_score, popcorn_score, buzz, comp, trailer_views, intl_multiplier, studio_type, market_demand, release_format):
-    # 1. Base
+    # 1. BASE CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
-    # 2. Studio Efficiency
+    # 2. STUDIO EFFICIENCY
     view_efficiency = 1.0
     if studio_type == "Cult / Indie (A24/Neon)": view_efficiency = 0.6 
     elif studio_type == "Major Franchise": view_efficiency = 1.0 
@@ -168,7 +189,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, popcorn_scor
     
     base_gross = base_gross * trailer_multiplier
 
-    # 3. Efficiency Scaling
+    # 3. EFFICIENCY SCALING
     blockbuster_mult = 1.0
     if theaters > 2500:
         if total_aware > 60: blockbuster_mult = 3.0
@@ -178,7 +199,7 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, popcorn_scor
     
     base_gross = base_gross * blockbuster_mult
 
-    # 4. Market Demand
+    # 4. MARKET DEMAND
     demand_mult = 1.0
     if market_demand == "Pent-up / Starved": demand_mult = 1.2
     elif market_demand == "Saturated / Crowded": demand_mult = 0.85
@@ -244,7 +265,6 @@ upcoming_data = {
         "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6},
         "poly_slug": "zootopia-2-5-day-opening-box-office"
     },
-    # ... (Previous presets included implicitly)
     "Eternity (Nov 26)": {
         "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", "release_format": "5-Day Holiday (Wed-Sun)",
         "aware": 21, "interest": 34, "theaters": 2400, "buzz": 1.2, "comp": 0.85, 
@@ -254,7 +274,6 @@ upcoming_data = {
         "market_demand": "Normal", "popcorn_est": 88,
         "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
     },
-    # ... Add other upcoming from previous code ...
     "Rental Family (Nov 21)": {
         "type": "upcoming", "studio_type": "Cult / Indie (A24/Neon)", "release_format": "Standard 3-Day",
         "aware": 15, "interest": 25, "theaters": 1500, "buzz": 1.1, "comp": 0.7, 
@@ -341,16 +360,18 @@ upcoming_data = {
 historical_data = {
     "Superman (Jul '25)": {
         "type": "historical", "studio_type": "Major Franchise", "release_format": "Standard 3-Day",
-        "actual_opening": 115.0, "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
+        "actual_opening": 115.0,
+        "aware": 85, "interest": 65, "theaters": 4200, "buzz": 1.4, "comp": 0.9, 
         "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000, "frozen_views": 30000000,
         "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
-        "tracking_source": "Estimated", "competitors": "Fantastic Four", "market_demand": "Normal", "popcorn_est": 88,
+        "tracking_source": "Estimated", "competitors": "Fantastic Four",
+        "market_demand": "Normal", "popcorn_est": 88,
         "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
     },
-    # ... (Other historicals same logic)
+    # ... (Keeping historicals concise for this step)
 }
 
-# --- LONG LEAD CALC FUNCTION ---
+# --- VIEW 1: LONG LEAD LOGIC ---
 def calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, competition_level):
     genre_baselines = {"Action/Adventure": 25.0, "Horror": 18.0, "Sci-Fi": 22.0, "Drama": 8.0, "Comedy": 12.0, "Family/Animation": 28.0, "Thriller": 14.0}
     base = genre_baselines.get(genre, 10.0)
@@ -378,7 +399,6 @@ def calculate_long_lead(genre, cast_score, budget, rating, ip_status, season, co
     raw_prediction = (base + star_power_add + production_add) * ip_mult * season_mult * rating_mult * comp_mult
     return raw_prediction
 
-# --- VIEW 1: LONG LEAD ---
 def render_long_lead():
     st.title("🔭 Long-Lead Slate Planner")
     st.caption("Fundamental analysis for greenlighting and slate planning (3-12 months out).")
@@ -412,7 +432,7 @@ def render_long_lead():
             <h3 style="margin: 0; color: #0F172A;">${low_end:.1f}M — ${high_end:.1f}M</h3>
         </div>
         """, unsafe_allow_html=True)
-        
+
     with col2:
         breakdown_data = pd.DataFrame({
             "Factor": ["Genre Baseline", "Star Power Add", "Budget/Spectacle Add", "Final Prediction"],
@@ -425,6 +445,26 @@ def render_long_lead():
             color=alt.Color('Type', scale=alt.Scale(domain=['Base', 'Add-on', 'Total'], range=['#94A3B8', '#64748B', '#18181B']))
         ).properties(height=300)
         st.altair_chart(c, use_container_width=True)
+
+    st.markdown("---")
+    st.markdown("#### 🎞️ Historical Comps (Automatic)")
+    comps_db = [
+        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
+        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
+        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
+        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
+        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
+        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
+        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
+        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
+    ]
+    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
+    if filtered_comps:
+        df_comps = pd.DataFrame(filtered_comps)
+        st.dataframe(df_comps, use_container_width=True)
+    else:
+        st.info("No direct comps found in database.")
+
 
 # --- VIEW 2: TRACKER ---
 def render_tracker(dataset, mode_title):
@@ -452,6 +492,20 @@ def render_tracker(dataset, mode_title):
     with col_a: st.sidebar.metric("Wiki Views", f"{live_wiki:,}", help="30-Day Avg")
     with col_b: st.sidebar.metric("Trailer Views", f"{live_yt/1000000:.1f}M")
     
+    # --- PREDICTION MARKETS ---
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("### 🔮 Prediction Markets")
+    
+    if live_poly and "top_outcome" in live_poly:
+        st.sidebar.success(f"✅ {live_poly['title']}")
+        st.sidebar.metric("Market Consensus", f"{live_poly['top_outcome']}", f"{live_poly['prob']}% Probability")
+        st.sidebar.link_button("View on Polymarket", live_poly['url'])
+    elif data.get('poly_slug'):
+        st.sidebar.warning("⚠️ Market Not Found / Closed")
+    
+    # Manual Odds Input
+    betting_odds = st.sidebar.number_input("Betting Odds Implied Probability (%)", 0, 100, value=0, help="Manual override from Sportsbet/Ladbrokes")
+
     st.sidebar.markdown("---")
     st.sidebar.caption("Model Tuning")
     studio_type = st.sidebar.selectbox("Studio / Brand Profile", ["Major Franchise", "Cult / Indie (A24/Neon)", "Major Franchise (Animation)"], index=0 if data.get("studio_type") == "Major Franchise" else 1)
@@ -488,32 +542,15 @@ def render_tracker(dataset, mode_title):
     if data.get('market_demand') == "Pent-up / Starved": demand_index = 2
     elif data.get('market_demand') == "Saturated / Crowded": demand_index = 0
     market_demand = st.sidebar.selectbox("Market Demand", ["Saturated / Crowded", "Normal", "Pent-up / Starved"], index=demand_index)
-    
-    # --- PREDICTION MARKETS SECTION ---
-    st.sidebar.markdown("### 🔮 Prediction Markets")
-    
-    # Check if we have live Polymarket data
-    if live_poly:
-        st.sidebar.success("✅ Polymarket Data Found")
-        st.sidebar.markdown(f"**Market:** {live_poly.get('question')}")
-        # Note: Parsing the exact probability from the raw event JSON is complex without the specific outcome ID
-        # We display a link to the market instead
-        st.sidebar.link_button("View on Polymarket", f"https://polymarket.com/event/{data['poly_slug']}")
-    elif data.get('poly_slug'):
-        st.sidebar.warning("⚠️ Market Not Found / Closed")
-    
-    # Manual Input for Betting Odds
-    st.sidebar.caption("Manual Betting Odds Input")
-    betting_odds = st.sidebar.number_input("Implied Probability (%)", 0, 100, value=0, help="Enter value from Sportsbet/Ladbrokes if available")
 
-    # Calc
+    # Calculations
     opening, extended, dom_total, global_total = calculate_box_office(
         interest, total_aware, theaters, rt_score, popcorn_score, buzz, comp, live_yt, data['intl_multiplier'], studio_type, market_demand, data.get('release_format', 'Standard 3-Day')
     )
 
     # Output
     if data.get('type') == 'historical':
-        # (Backtest Logic Omitted for brevity - same as before)
+        # Backtest Logic...
         pass
     else:
         col1, col2, col3, col4 = st.columns(4)
@@ -524,9 +561,11 @@ def render_tracker(dataset, mode_title):
         with col3: st.metric("Proj. Domestic", f"${dom_total/1_000_000:.2f}M")
         with col4: st.metric("Proj. Global", f"${global_total/1_000_000:.2f}M")
         
-        # NEW: Market Consensus Card
+        # NEW: Market Validation Card
+        if live_poly and "top_outcome" in live_poly:
+             st.info(f"🔮 **Market Validation:** Polymarket bettors are betting on **{live_poly['top_outcome']}** with **{live_poly['prob']}%** confidence.")
         if betting_odds > 0:
-             st.info(f"🎲 **Betting Market Consensus:** The betting markets imply a **{betting_odds}%** chance of hitting this target.")
+             st.info(f"🎲 **Betting Market Consensus:** Implied probability of **{betting_odds}%** for the current target.")
 
     st.markdown("---")
     
@@ -552,9 +591,13 @@ def render_tracker(dataset, mode_title):
         text = base.mark_text(align='left', dx=3).encode(text=alt.Text('Gross', format=',.1f'))
         st.altair_chart((bars + text).properties(height=300).configure_view(strokeWidth=0), use_container_width=True)
 
-# --- MAIN ---
+# --- MAIN NAVIGATION CONTROLLER ---
 view = st.sidebar.radio("Evaluation Mode", ["🔭 Long-Lead Planner", "📉 Short-Term Tracker", "🕰️ Historical Analysis"])
 
-if view == "🔭 Long-Lead Planner": render_long_lead()
-elif view == "📉 Short-Term Tracker": render_tracker(upcoming_data, "📉 Short-Term Tracker")
-else: render_tracker(historical_data, "🕰️ Historical Analysis")
+if view == "🔭 Long-Lead Planner":
+    render_long_lead()
+elif view == "📉 Short-Term Tracker":
+    render_tracker(upcoming_data, "📉 Short-Term Tracker")
+else:
+    render_tracker(historical_data, "🕰️ Historical Analysis")
+    
