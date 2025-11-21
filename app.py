@@ -162,7 +162,6 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     base_gross = base_gross * blockbuster_mult
 
     # 4. MARKET DEMAND (New Logic)
-    # "Pent-up" demand boosts the opening
     demand_mult = 1.0
     if market_demand == "Pent-up / Starved": demand_mult = 1.2
     elif market_demand == "Saturated / Crowded": demand_mult = 0.85
@@ -187,11 +186,10 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     
     # Front-loading Penalty (Exceptions for Family)
     if final_opening > 120_000_000: 
-        # Family films don't burn out as fast, even with big openings
         if "Family" in studio_type or "Animation" in studio_type or market_demand == "Pent-up / Starved":
-            legs -= 0.1 # Slight penalty
+            legs -= 0.1
         else:
-            legs -= 0.5 # Heavy penalty for Marvel/Action
+            legs -= 0.5
             
     dom_total = final_opening * legs
     global_total = dom_total * intl_multiplier
@@ -208,7 +206,7 @@ upcoming_data = {
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
         "rt_slug": "wicked_part_two", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)", "competitors": "Rental Family, Gladiator II",
-        "market_demand": "Normal", # It's crowded with Moana 2/Zootopia nearby
+        "market_demand": "Normal",
         "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
     },
     "Rental Family (Nov 21)": {
@@ -235,8 +233,8 @@ upcoming_data = {
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
         "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)", "competitors": "Eternity",
-        "market_demand": "Pent-up / Starved", # Family audiences are hungry
-        "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Zootopia 1": 75.0}
+        "market_demand": "Pent-up / Starved",
+        "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
     },
     "Five Nights at Freddy's 2 (Dec 5)": {
         "type": "upcoming", "studio_type": "Major Franchise",
@@ -253,7 +251,7 @@ upcoming_data = {
         "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000, 
         "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
         "tracking_source": "Hypothetical", "competitors": "SpongeBob Movie",
-        "market_demand": "Pent-up / Starved", # The bi-annual event
+        "market_demand": "Pent-up / Starved",
         "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
     },
     "SpongeBob Movie (Dec 19)": {
@@ -511,7 +509,7 @@ def render_tracker(dataset, mode_title):
     comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
     st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
     
-    # MARKET DEMAND SELECTOR (NEW)
+    # MARKET DEMAND SELECTOR
     demand_index = 1 # Default "Normal"
     if data.get('market_demand') == "Pent-up / Starved": demand_index = 2
     elif data.get('market_demand') == "Saturated / Crowded": demand_index = 0
