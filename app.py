@@ -134,7 +134,7 @@ def get_live_data(wiki_title, yt_id, yt_fallback, rt_slug, frozen_views=None):
     return wiki_views, yt_views, rt_score
 
 # --- CORE CALCULATION ENGINE ---
-def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type):
+def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, trailer_views, intl_multiplier, studio_type, market_demand):
     # 1. BASE CALCULATION
     base_gross = (interest * 0.15) * (total_aware * 0.05) * 1_000_000
     
@@ -161,6 +161,14 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     
     base_gross = base_gross * blockbuster_mult
 
+    # 4. MARKET DEMAND (New Logic)
+    # "Pent-up" demand boosts the opening
+    demand_mult = 1.0
+    if market_demand == "Pent-up / Starved": demand_mult = 1.2
+    elif market_demand == "Saturated / Crowded": demand_mult = 0.85
+    
+    base_gross = base_gross * demand_mult
+
     cap = 5000 if theaters > 3000 else 3500
     weighted_gross = (base_gross * 0.7) + ((theaters * cap) * 0.3)
     qual_mult = 1.15 if rt_score > 80 else (0.85 if rt_score < 50 else 1.0)
@@ -177,17 +185,22 @@ def calculate_box_office(interest, total_aware, theaters, rt_score, buzz, comp, 
     elif rt_score < 50: legs -= 0.6
     if theaters < 2000: legs += 0.4
     
-    # Front-loading Penalty
-    if final_opening > 120_000_000: legs -= 0.5
-    elif final_opening > 80_000_000: legs -= 0.3
-    
+    # Front-loading Penalty (Exceptions for Family)
+    if final_opening > 120_000_000: 
+        # Family films don't burn out as fast, even with big openings
+        if "Family" in studio_type or "Animation" in studio_type or market_demand == "Pent-up / Starved":
+            legs -= 0.1 # Slight penalty
+        else:
+            legs -= 0.5 # Heavy penalty for Marvel/Action
+            
     dom_total = final_opening * legs
     global_total = dom_total * intl_multiplier
         
     return final_opening, dom_total, global_total
 
-# --- DATASETS (GLOBAL SCOPE) ---
+# --- DATASETS ---
 
+# 1. UPCOMING (Chronological)
 upcoming_data = {
     "Wicked: Part Two (Nov 21)": {
         "type": "upcoming", "studio_type": "Major Franchise",
@@ -195,6 +208,7 @@ upcoming_data = {
         "wiki": "Wicked_(2024_film)", "yt_id": "vt98AlBDI9Y", "yt_fallback": 113000000,
         "rt_slug": "wicked_part_two", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)", "competitors": "Rental Family, Gladiator II",
+        "market_demand": "Normal", # It's crowded with Moana 2/Zootopia nearby
         "intl_multiplier": 1.6, "benchmarks": {"Wicked: Part One": 114.0, "Frozen II": 130.0, "Barbie": 162.0}
     },
     "Rental Family (Nov 21)": {
@@ -203,6 +217,7 @@ upcoming_data = {
         "wiki": "Rental_Family", "yt_id": "sZT37sM2VgE", "yt_fallback": 5000000, 
         "rt_slug": "rental_family", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Searchlight Comps)", "competitors": "Wicked: Part Two (Direct)",
+        "market_demand": "Normal",
         "intl_multiplier": 1.4, "benchmarks": {"The Menu": 9.0, "Next Goal Wins": 2.5}
     },
     "Eternity (Nov 26)": {
@@ -211,15 +226,17 @@ upcoming_data = {
         "wiki": "Eternity_(2025_film)", "yt_id": "irXTps1REHU", "yt_fallback": 9300000,
         "rt_slug": "eternity_2025", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)", "competitors": "Zootopia 2 (Direct)",
+        "market_demand": "Normal",
         "intl_multiplier": 1.8, "benchmarks": {"Priscilla": 5.0, "Age of Adaline": 13.2, "Me Before You": 18.7}
     },
     "Zootopia 2 (Nov 26)": {
-        "type": "upcoming", "studio_type": "Major Franchise",
+        "type": "upcoming", "studio_type": "Major Franchise (Animation)",
         "aware": 68, "interest": 53, "theaters": 4300, "buzz": 1.3, "comp": 0.8, 
         "wiki": "Zootopia_2", "yt_id": "xo4rkcC7kFc", "yt_fallback": 25000000,
         "rt_slug": "zootopia_2", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (The Quorum)", "competitors": "Eternity",
-        "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Moana": 56.6}
+        "market_demand": "Pent-up / Starved", # Family audiences are hungry
+        "intl_multiplier": 2.8, "benchmarks": {"Inside Out 2": 154.0, "Super Mario Bros": 146.0, "Zootopia 1": 75.0}
     },
     "Five Nights at Freddy's 2 (Dec 5)": {
         "type": "upcoming", "studio_type": "Major Franchise",
@@ -227,6 +244,7 @@ upcoming_data = {
         "wiki": "Five_Nights_at_Freddy's_2_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 45000000,
         "rt_slug": "five_nights_at_freddys_2", "source_label": "Proxy (FNAF 1 Data)", "source_status": "warning",
         "tracking_source": "Estimated (Fan Event)", "competitors": "Wicked Part 2 (Holdover)",
+        "market_demand": "Normal",
         "intl_multiplier": 1.7, "benchmarks": {"FNAF 1": 80.0, "Halloween": 76.2, "M3GAN": 30.4}
     },
     "Avatar: Fire and Ash (Dec 19)": {
@@ -235,14 +253,16 @@ upcoming_data = {
         "wiki": "Avatar:_Fire_and_Ash", "yt_id": "d9MyqF3xZSo", "yt_fallback": 60000000, 
         "rt_slug": "avatar_fire_and_ash", "source_label": "Proxy Data", "source_status": "warning",
         "tracking_source": "Hypothetical", "competitors": "SpongeBob Movie",
+        "market_demand": "Pent-up / Starved", # The bi-annual event
         "intl_multiplier": 3.5, "benchmarks": {"Avatar: Way of Water": 134.1, "Endgame": 357.0}
     },
     "SpongeBob Movie (Dec 19)": {
-        "type": "upcoming", "studio_type": "Major Franchise",
+        "type": "upcoming", "studio_type": "Major Franchise (Animation)",
         "aware": 90, "interest": 55, "theaters": 4000, "buzz": 1.3, "comp": 0.85, 
         "wiki": "The_SpongeBob_Movie:_Search_for_SquarePants", "yt_id": "wFx7DRIKaig", "yt_fallback": 15000000,
         "rt_slug": "the_spongebob_movie_search_for_squarepants", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Real Data (Quorum Proxy)", "competitors": "Avatar 3, Sonic 3",
+        "market_demand": "Normal",
         "intl_multiplier": 2.3, "benchmarks": {"Sponge Out of Water": 55.3, "Kung Fu Panda 4": 57.9}
     },
     "Marty Supreme (Dec 25)": {
@@ -251,6 +271,7 @@ upcoming_data = {
         "wiki": "Marty_Supreme", "yt_id": "s9gSuKaKcqM", "yt_fallback": 17800000,
         "rt_slug": "marty_supreme", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Uncut Gems Comps)", "competitors": "Avatar: Fire and Ash, SpongeBob",
+        "market_demand": "Normal",
         "intl_multiplier": 1.8, "benchmarks": {"Uncut Gems (Wide)": 9.6, "Lady Bird (Wide)": 5.3, "Challengers": 15.0}
     },
     "The Housemaid (Early 2026)": {
@@ -259,6 +280,7 @@ upcoming_data = {
         "wiki": "The_Housemaid_(2025_film)", "yt_id": "7rZEsxySFPw", "yt_fallback": 8000000, 
         "rt_slug": "the_housemaid_2025", "source_label": "Teaser / Proxy", "source_status": "warning",
         "tracking_source": "Estimated (Thriller Comps)", "competitors": "Heavy Thriller Slate",
+        "market_demand": "Normal",
         "intl_multiplier": 1.5, "benchmarks": {"A Simple Favor": 16.0, "Don't Worry Darling": 19.3}
     },
     "Pillion (2026)": {
@@ -267,6 +289,7 @@ upcoming_data = {
         "wiki": "Pillion_(film)", "yt_id": "aTAacTUKK00", "yt_fallback": 500000,
         "rt_slug": "pillion", "source_label": "Teaser / First Look", "source_status": "success",
         "tracking_source": "Estimated (Arthouse Niche)", "competitors": "Limited Release Competition",
+        "market_demand": "Normal",
         "intl_multiplier": 1.5, "benchmarks": {"Past Lives (Wide)": 5.8, "The Whale (Wide)": 11.0, "Moonlight (Wide)": 1.5}
     },
     "The Moment (2026)": {
@@ -275,6 +298,7 @@ upcoming_data = {
         "wiki": "The_Moment_(2026_film)", "yt_id": "ey5YrCNH09g", "yt_fallback": 1500000,
         "rt_slug": "the_moment_2026", "source_label": "Official Trailer", "source_status": "success",
         "tracking_source": "Estimated (Sci-Fi Comps)", "competitors": "Project Hail Mary",
+        "market_demand": "Normal",
         "intl_multiplier": 2.0, "benchmarks": {"Ex Machina (Wide)": 5.4, "After Yang": 0.04, "Her (Wide)": 5.3}
     },
     "Elden Ring (TBD)": {
@@ -283,10 +307,12 @@ upcoming_data = {
         "wiki": "Elden_Ring", "yt_id": "E3Huy2cdih0", "yt_fallback": 14000000,
         "rt_slug": None, "source_label": "Proxy (Game Trailer)", "source_status": "warning",
         "tracking_source": "Hypothetical (Gamer Comps)", "competitors": "Direct-to-Fan Event",
+        "market_demand": "Pent-up / Starved",
         "intl_multiplier": 2.2, "benchmarks": {"Dune: Part One": 41.0, "Five Nights at Freddy's": 80.0, "Uncharted": 44.0}
     }
 }
 
+# 2. HISTORICAL (Recency)
 historical_data = {
     "Superman (Jul '25)": {
         "type": "historical", "studio_type": "Major Franchise", "actual_opening": 115.0,
@@ -294,6 +320,7 @@ historical_data = {
         "wiki": "Superman_(2025_film)", "yt_id": "v7s5d4pG2eM", "yt_fallback": 30000000, "frozen_views": 30000000,
         "rt_slug": "superman_2025", "source_label": "Simulated Historical", "source_status": "neutral",
         "tracking_source": "Estimated", "competitors": "Fantastic Four",
+        "market_demand": "Normal",
         "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 115.0, "Man of Steel": 116.6}
     },
     "A Minecraft Movie (Apr '25)": {
@@ -302,6 +329,7 @@ historical_data = {
         "wiki": "A_Minecraft_Movie", "yt_id": "jTq91k43nDQ", "yt_fallback": 45000000, "frozen_views": 45000000,
         "rt_slug": "a_minecraft_movie", "source_label": "Simulated Historical", "source_status": "neutral",
         "tracking_source": "Real Data", "competitors": "Micheal",
+        "market_demand": "Normal",
         "intl_multiplier": 2.2, "benchmarks": {"Actual Opening (Sim)": 145.0, "Super Mario Bros": 146.3}
     },
     "Civil War (Apr '24)": {
@@ -310,6 +338,7 @@ historical_data = {
         "wiki": "Civil_War_(film)", "yt_id": "aDyQxtgKWbs", "yt_fallback": 22000000, "frozen_views": 16000000,
         "rt_slug": "civil_war_2024", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Godzilla x Kong",
+        "market_demand": "Normal",
         "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 25.7, "Ex Machina": 6.8}
     },
     "Five Nights at Freddy's (Oct '23)": {
@@ -318,6 +347,7 @@ historical_data = {
         "wiki": "Five_Nights_at_Freddy's_(film)", "yt_id": "0VH9WCFV6Xw", "yt_fallback": 50000000, "frozen_views": 25000000,
         "rt_slug": "five_nights_at_freddys", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Eras Tour",
+        "market_demand": "Pent-up / Starved",
         "intl_multiplier": 1.8, "benchmarks": {"Actual Opening": 80.0, "Halloween": 76.2}
     },
     "Barbie (Jul '23)": {
@@ -326,6 +356,7 @@ historical_data = {
         "wiki": "Barbie_(film)", "yt_id": "pBk4NYhWNMM", "yt_fallback": 80000000, "frozen_views": 45000000,
         "rt_slug": "barbie", "source_label": "Historical Data", "source_status": "neutral",
         "tracking_source": "Historical NRG", "competitors": "Oppenheimer",
+        "market_demand": "Pent-up / Starved",
         "intl_multiplier": 2.1, "benchmarks": {"Actual Opening": 162.0, "Mario Bros": 146.3}
     }
 }
@@ -407,7 +438,27 @@ def render_long_lead():
         ).properties(height=300)
         st.altair_chart(c, use_container_width=True)
 
-# --- VIEW 2: PREDICTIVE TRACKER UI ---
+    st.markdown("---")
+    st.markdown("#### 🎞️ Historical Comps (Automatic)")
+    comps_db = [
+        {"Title": "M3GAN", "Genre": "Horror", "Budget": 12, "Opening": 30.4},
+        {"Title": "Smile", "Genre": "Horror", "Budget": 17, "Opening": 22.6},
+        {"Title": "Dune", "Genre": "Sci-Fi", "Budget": 165, "Opening": 41.0},
+        {"Title": "Air", "Genre": "Drama", "Budget": 90, "Opening": 14.4},
+        {"Title": "Challengers", "Genre": "Drama", "Budget": 55, "Opening": 15.0},
+        {"Title": "Bullet Train", "Genre": "Action/Adventure", "Budget": 90, "Opening": 30.0},
+        {"Title": "John Wick 4", "Genre": "Action/Adventure", "Budget": 100, "Opening": 73.8},
+        {"Title": "Anyone But You", "Genre": "Comedy", "Budget": 25, "Opening": 6.0},
+    ]
+    filtered_comps = [m for m in comps_db if m['Genre'] == genre and abs(m['Budget'] - budget) < 80]
+    if filtered_comps:
+        df_comps = pd.DataFrame(filtered_comps)
+        st.dataframe(df_comps, use_container_width=True)
+    else:
+        st.info("No direct comps found in database.")
+
+
+# --- VIEW 2: PREDICTIVE TRACKER (SHARED UI) ---
 def render_tracker(dataset, mode_title):
     st.title(mode_title)
     st.markdown("---")
@@ -423,7 +474,7 @@ def render_tracker(dataset, mode_title):
         data.get('frozen_views')
     )
 
-    # Sidebar
+    # Sidebar Inputs
     st.sidebar.markdown("### 📡 Live Signals")
     badge_class = "status-success" if data['source_status'] == "success" else "status-neutral"
     st.sidebar.markdown(f'<span class="status-badge {badge_class}">{data["source_label"]}</span>', unsafe_allow_html=True)
@@ -433,7 +484,7 @@ def render_tracker(dataset, mode_title):
     
     st.sidebar.markdown("---")
     st.sidebar.caption("Model Tuning")
-    studio_type = st.sidebar.selectbox("Studio / Brand Profile", ["Major Franchise", "Cult / Indie (A24/Neon)"], index=0 if data.get("studio_type") == "Major Franchise" else 1)
+    studio_type = st.sidebar.selectbox("Studio / Brand Profile", ["Major Franchise", "Cult / Indie (A24/Neon)", "Major Franchise (Animation)"], index=0 if data.get("studio_type") == "Major Franchise" else 1)
     
     st.sidebar.markdown("### 🎛️ Model Inputs")
     
@@ -459,13 +510,20 @@ def render_tracker(dataset, mode_title):
     buzz = st.sidebar.slider("Social Buzz Multiplier", 0.5, 2.0, value=float(data['buzz']))
     comp = st.sidebar.slider("Competition Factor", 0.5, 1.0, value=float(data['comp']))
     st.sidebar.caption(f"**Opening Against:** {data['competitors']}")
+    
+    # MARKET DEMAND SELECTOR (NEW)
+    demand_index = 1 # Default "Normal"
+    if data.get('market_demand') == "Pent-up / Starved": demand_index = 2
+    elif data.get('market_demand') == "Saturated / Crowded": demand_index = 0
+    
+    market_demand = st.sidebar.selectbox("Market Demand", ["Saturated / Crowded", "Normal", "Pent-up / Starved"], index=demand_index)
 
     # Calculations
     opening, dom_total, global_total = calculate_box_office(
-        interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'], studio_type
+        interest, total_aware, theaters, rt_score, buzz, comp, live_yt, data['intl_multiplier'], studio_type, market_demand
     )
 
-    # Dashboard
+    # Dashboard Logic
     if data.get('type') == 'historical':
         actual = data['actual_opening'] * 1_000_000
         delta = opening - actual
